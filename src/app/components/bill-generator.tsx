@@ -31,7 +31,6 @@ export default function BillGenerator() {
     address: '',
     contact: '',
   })
-  const [discount, setDiscount] = useState(0); // State for discount
 
   const addSection = (type: 'regular' | 'discount') => {
     setSections([...sections, { id: uuidv4(), title: '', amount: 0, type }])
