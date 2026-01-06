@@ -1,4 +1,4 @@
-import BillGenerator from '@/app/components/bill-generator'
+import BillGenerator from '@/components/bill-generator'
 
 export default function Home() {
   return (
