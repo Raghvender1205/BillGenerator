@@ -67,7 +67,7 @@ export default function BillGenerator() {
     if (savedLandlord) {
       try {
         setLandlordInfo(JSON.parse(savedLandlord))
-      } catch (e) {
+      } catch {
         console.error('Failed to parse landlord info from localStorage')
       }
     }
@@ -75,7 +75,7 @@ export default function BillGenerator() {
     if (savedTenant) {
       try {
         setTenantInfo(JSON.parse(savedTenant))
-      } catch (e) {
+      } catch {
         console.error('Failed to parse tenant info from localStorage')
       }
     }
