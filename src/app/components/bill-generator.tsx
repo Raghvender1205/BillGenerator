@@ -35,8 +35,11 @@ import { DragDropProvider } from '@dnd-kit/react'
 import { isSortable } from '@dnd-kit/react/sortable'
 import SortableInvoiceRow from './sortable-invoice-row'
 import SavedLandlords from './saved-landlords'
+import SavedTenants from './saved-tenants'
+import { tenantCacheLifetime, readTenantCache } from '../lib/tenant-cache'
 import ChargePresets from './charge-presets'
 import ChargeCalculation from './charge-calculation'
+import ConfiguredChargeRow from './configured-charge-row'
 import { useChargeRates } from '../lib/use-charge-rates'
 import { calculatedAmount, type ChargeRateInput } from '../lib/charge-rates'
 import { landlordCacheLifetime, readLandlordCache } from '../lib/landlord-cache'
@@ -105,6 +108,22 @@ export default function BillGenerator({ userId }: { userId?: string }) {
             draft = {
               ...draft,
               landlord: { name: selected.name, phone: selected.phone },
+            }
+        }
+        if (userId && Object.values(draft.tenant).every((value) => !value)) {
+          const cache = readTenantCache(userId)
+          const selected =
+            cache && Date.now() - cache.cachedAt < tenantCacheLifetime
+              ? cache.profiles.find((profile) => profile.id === cache.selected)
+              : null
+          if (selected)
+            draft = {
+              ...draft,
+              tenant: {
+                name: selected.name,
+                contact: selected.contact,
+                address: selected.address,
+              },
             }
         }
         latest.current = draft
@@ -454,7 +473,9 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                       key={userId}
                       userId={userId}
                       landlord={invoice.landlord}
-                      onSelect={(landlord) => update({ ...invoice, landlord })}
+                      onSelect={(landlord) =>
+                        update({ ...(latest.current ?? invoice), landlord })
+                      }
                     />
                   ) : null}
                   <label>
@@ -500,6 +521,15 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                   <h3>
                     <UserRound size={15} aria-hidden="true" /> BILL TO · TENANT
                   </h3>
+                  {userId ? (
+                    <SavedTenants
+                      userId={userId}
+                      tenant={invoice.tenant}
+                      onSelect={(tenant) =>
+                        update({ ...(latest.current ?? invoice), tenant })
+                      }
+                    />
+                  ) : null}
                   <label>
                     Full name <span>*</span>
                     <input
@@ -596,58 +626,68 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                       disabled={!ready || invoice.items.length < 2}
                       key={item.id}
                     >
-                      <div
-                        className={`description-input ${!userId && item.type === 'regular' ? 'calculable-description' : ''}`}
-                      >
-                        <input
-                          id={`item-${index}`}
-                          required
-                          maxLength={200}
-                          aria-label={`${item.type === 'discount' ? 'Discount' : 'Charge'} ${index + 1} description`}
-                          placeholder={
-                            item.type === 'discount'
-                              ? 'Discount description'
-                              : 'e.g. Water charges'
-                          }
-                          value={item.title}
-                          readOnly={Boolean(item.chargeId)}
-                          onChange={(e) =>
-                            updateItem(item.id, { title: e.target.value })
-                          }
+                      {item.chargeId ? (
+                        <ConfiguredChargeRow
+                          item={item}
+                          onChange={(patch) => updateItem(item.id, patch)}
                         />
-                        {!userId && item.type === 'regular' ? (
-                          <button
-                            type="button"
-                            className="icon-button line-calculator"
-                            aria-label={
-                              item.quantity === undefined
-                                ? `Calculate ${item.title || 'charge'} by units`
-                                : `Edit ${item.title || 'charge'} calculation`
-                            }
-                            title="Calculate with units and a rate"
-                            onClick={() => editCalculation(item)}
+                      ) : (
+                        <>
+                          <div
+                            className={`description-input ${!userId && item.type === 'regular' ? 'calculable-description' : ''}`}
                           >
-                            <Calculator size={16} aria-hidden="true" />
-                          </button>
-                        ) : null}
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        max="1000000000"
-                        step="0.01"
-                        required
-                        inputMode="decimal"
-                        aria-label={`Amount for ${item.title || `item ${index + 1}`}`}
-                        placeholder="0.00"
-                        value={item.amount}
-                        readOnly={
-                          item.quantity !== undefined || Boolean(item.chargeId)
-                        }
-                        onChange={(e) =>
-                          updateItem(item.id, { amount: e.target.value })
-                        }
-                      />
+                            <input
+                              id={`item-${index}`}
+                              required
+                              maxLength={200}
+                              aria-label={`${item.type === 'discount' ? 'Discount' : 'Charge'} ${index + 1} description`}
+                              placeholder={
+                                item.type === 'discount'
+                                  ? 'Discount description'
+                                  : 'e.g. Water charges'
+                              }
+                              value={item.title}
+                              readOnly={Boolean(item.chargeId)}
+                              onChange={(e) =>
+                                updateItem(item.id, { title: e.target.value })
+                              }
+                            />
+                            {!userId && item.type === 'regular' ? (
+                              <button
+                                type="button"
+                                className="icon-button line-calculator"
+                                aria-label={
+                                  item.quantity === undefined
+                                    ? `Calculate ${item.title || 'charge'} by units`
+                                    : `Edit ${item.title || 'charge'} calculation`
+                                }
+                                title="Calculate with units and a rate"
+                                onClick={() => editCalculation(item)}
+                              >
+                                <Calculator size={16} aria-hidden="true" />
+                              </button>
+                            ) : null}
+                          </div>
+                          <input
+                            type="number"
+                            min="0"
+                            max="1000000000"
+                            step="0.01"
+                            required
+                            inputMode="decimal"
+                            aria-label={`Amount for ${item.title || `item ${index + 1}`}`}
+                            placeholder="0.00"
+                            value={item.amount}
+                            readOnly={
+                              item.quantity !== undefined ||
+                              Boolean(item.chargeId)
+                            }
+                            onChange={(e) =>
+                              updateItem(item.id, { amount: e.target.value })
+                            }
+                          />
+                        </>
+                      )}
                       <button
                         className="icon-button remove-item"
                         type="button"
@@ -668,10 +708,7 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                 </div>
               </DragDropProvider>
               {invoice.items
-                .filter(
-                  (item) =>
-                    item.quantity !== undefined || Boolean(item.chargeId),
-                )
+                .filter((item) => item.quantity !== undefined && !item.chargeId)
                 .map((item) => (
                   <ChargeCalculation
                     key={item.id}
@@ -689,22 +726,23 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                     <Plus size={15} aria-hidden="true" /> Add a charge
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  className="text-button muted-button"
-                  onClick={() => addItem('discount')}
+                <ChargePresets
+                  rates={chargeRates.rates}
+                  loading={chargeRates.loading}
+                  error={chargeRates.error}
+                  refresh={chargeRates.refresh}
+                  onAdd={addCalculatedCharge}
+                  signedIn={Boolean(userId)}
                 >
-                  <Plus size={15} aria-hidden="true" /> Add discount
-                </button>
+                  <button
+                    type="button"
+                    className="text-button muted-button"
+                    onClick={() => addItem('discount')}
+                  >
+                    <Plus size={15} aria-hidden="true" /> Add discount
+                  </button>
+                </ChargePresets>
               </div>
-              <ChargePresets
-                rates={chargeRates.rates}
-                loading={chargeRates.loading}
-                error={chargeRates.error}
-                refresh={chargeRates.refresh}
-                onAdd={addCalculatedCharge}
-                signedIn={Boolean(userId)}
-              />
               <div className="editor-totals">
                 <div>
                   <span>Subtotal</span>

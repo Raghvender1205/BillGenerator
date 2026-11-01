@@ -1,10 +1,12 @@
 'use client'
 import { useState } from 'react'
 import SavedLandlords from './saved-landlords'
+import SavedTenants from './saved-tenants'
 import { useChargeRates } from '../lib/use-charge-rates'
 import ChargePreferencesForm from './charge-preferences-form'
 
 export default function ProfileSettings({ userId }: { userId: string }) {
+  const [tenant, setTenant] = useState({ name: '', contact: '', address: '' })
   const [landlord, setLandlord] = useState({ name: '', phone: '' })
   const { rates, loading, error, refresh, savePreferences } =
     useChargeRates(userId)
@@ -40,6 +42,49 @@ export default function ProfileSettings({ userId }: { userId: string }) {
               setLandlord({ ...landlord, phone: event.target.value })
             }
             placeholder="e.g. +91 98765 43210"
+          />
+        </label>
+      </section>
+      <section className="settings-card" aria-labelledby="tenants-title">
+        <h2 id="tenants-title">Saved tenants</h2>
+        <p>Save tenant details and their rental address for future bills.</p>
+        <SavedTenants
+          userId={userId}
+          tenant={tenant}
+          onSelect={setTenant}
+          manager
+        />
+        <label>
+          Tenant name
+          <input
+            maxLength={100}
+            value={tenant.name}
+            onChange={(event) =>
+              setTenant({ ...tenant, name: event.target.value })
+            }
+            placeholder="e.g. Jamie Parker"
+          />
+        </label>
+        <label>
+          Tenant phone or email
+          <input
+            maxLength={150}
+            value={tenant.contact}
+            onChange={(event) =>
+              setTenant({ ...tenant, contact: event.target.value })
+            }
+            placeholder="How to reach your tenant"
+          />
+        </label>
+        <label>
+          Rental property address
+          <input
+            maxLength={300}
+            value={tenant.address}
+            onChange={(event) =>
+              setTenant({ ...tenant, address: event.target.value })
+            }
+            placeholder="Flat / house number, street, city, postal code"
           />
         </label>
       </section>

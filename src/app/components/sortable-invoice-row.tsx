@@ -24,7 +24,7 @@ export default function SortableInvoiceRow({
   return (
     <div
       ref={ref}
-      className={`line-row ${item.type === 'discount' ? 'is-discount' : ''} ${isDragging ? 'is-dragging' : ''}`}
+      className={`line-row ${item.chargeId ? 'has-configured-charge' : ''} ${item.type === 'discount' ? 'is-discount' : ''} ${isDragging ? 'is-dragging' : ''}`}
       data-dragging={isDragging}
     >
       <button

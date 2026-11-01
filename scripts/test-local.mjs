@@ -6,6 +6,7 @@ const env = localEnvironment('http://127.0.0.1:3100')
 for (const file of [
   'account_isolation.sql',
   'landlord_isolation.sql',
+  'tenant_isolation.sql',
   'charge_rate_isolation.sql',
   'onboarding_isolation.sql',
 ]) {

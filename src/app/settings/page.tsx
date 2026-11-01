@@ -10,8 +10,8 @@ export default async function Settings() {
         <div>
           <h1>Profile settings</h1>
           <p>
-            Your landlords and default charge rates, saved privately to your
-            account.
+            Your landlords, tenants, and default charge rates, saved privately
+            to your account.
           </p>
         </div>
         <Link className="text-button" href="/">

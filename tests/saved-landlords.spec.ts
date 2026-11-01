@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures'
 
-test('saved landlords can be reused, edited, and removed without changing invoice details', async ({
+test('one saved landlord stays compact and multiple landlords offer a selector', async ({
   page,
   isMobile,
 }) => {
@@ -9,7 +9,7 @@ test('saved landlords can be reused, edited, and removed without changing invoic
   const phone = page.getByPlaceholder('e.g. +91 98765 43210')
   const picker = page.getByRole('combobox', { name: 'Saved landlord' })
   const status = page.locator('.saved-landlord-status')
-  await expect(picker).toBeEnabled()
+  await expect(picker).toHaveCount(0)
   await expect(
     page.getByRole('button', { name: 'Save landlord', exact: true }),
   ).toBeDisabled()
@@ -17,19 +17,22 @@ test('saved landlords can be reused, edited, and removed without changing invoic
   await phone.fill('9876543210')
   await page.getByRole('button', { name: 'Save landlord', exact: true }).click()
   await expect(status).toHaveText('Landlord saved to your account.')
-  const firstId = await picker.inputValue()
+  await expect(picker).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: 'Update saved landlord', exact: true }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: 'Refresh saved landlords' }),
+  ).toHaveCount(0)
   await page
-    .locator('.saved-landlords')
-    .screenshot({ path: test.info().outputPath('saved-landlords-light.png') })
+    .locator('.party-grid')
+    .screenshot({ path: test.info().outputPath('saved-people-light.png') })
   await page
     .locator('html')
     .evaluate((element) => element.classList.add('dark'))
   await page
-    .locator('.saved-landlords')
-    .screenshot({ path: test.info().outputPath('saved-landlords-dark.png') })
-  await page
-    .locator('html')
-    .evaluate((element) => element.classList.remove('dark'))
+    .locator('.party-grid')
+    .screenshot({ path: test.info().outputPath('saved-people-dark.png') })
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -41,9 +44,9 @@ test('saved landlords can be reused, edited, and removed without changing invoic
     .getByRole('button', { name: 'Save as new landlord', exact: true })
     .click()
   await expect(status).toHaveText('Landlord saved to your account.')
-  await picker.selectOption(firstId)
+  await expect(picker).toBeVisible()
+  await picker.selectOption({ label: 'Saved Landlord A' })
   await expect(name).toHaveValue('Saved Landlord A')
-  await expect(phone).toHaveValue('9876543210')
   await name.fill('Updated Landlord A')
   await page
     .getByRole('button', { name: 'Update saved landlord', exact: true })
@@ -53,25 +56,30 @@ test('saved landlords can be reused, edited, and removed without changing invoic
     'All changes saved to your account',
   )
   await page.reload()
-  await expect(picker).toBeEnabled()
-  await picker.selectOption({ label: 'Saved Landlord B · 9123456780' })
+  await picker.selectOption({ label: 'Saved Landlord B' })
   await expect(name).toHaveValue('Saved Landlord B')
-  await picker.selectOption(firstId)
-  await expect(name).toHaveValue('Updated Landlord A')
-  await expect(phone).toHaveValue('9876543210')
+  await picker.selectOption({ label: 'Updated Landlord A' })
+  await page
+    .getByRole('link', { name: 'Manage landlords', exact: true })
+    .click()
   page.on('dialog', (dialog) => dialog.accept())
   await page
     .getByRole('button', { name: 'Remove saved landlord', exact: true })
     .click()
   await expect(status).toContainText('Saved landlord removed.')
+  await expect(picker).toHaveCount(0)
+  await page
+    .getByRole('link', { name: 'Back to invoice builder', exact: true })
+    .click()
   await expect(name).toHaveValue('Updated Landlord A')
-  await expect(picker.locator('option')).toHaveCount(2)
-  await page.getByRole('button', { name: 'Start fresh', exact: true }).click()
-  await expect(name).toHaveValue('Updated Landlord A')
-  await picker.selectOption({ label: 'Saved Landlord B · 9123456780' })
+  await page
+    .getByRole('button', { name: 'Use saved landlord', exact: true })
+    .click()
   await expect(name).toHaveValue('Saved Landlord B')
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
-  await expect(picker).toHaveCount(0)
+  await expect(
+    page.getByRole('link', { name: 'Sign in', exact: true }),
+  ).toBeVisible()
   expect(
     await page.evaluate(() =>
       Object.keys(sessionStorage).some((key) =>
@@ -79,61 +87,62 @@ test('saved landlords can be reused, edited, and removed without changing invoic
       ),
     ),
   ).toBe(false)
-  await expect(page.getByPlaceholder('e.g. Alex Morgan')).toHaveValue('')
 })
 
-test('selected landlord preloads from the account cache without a list request', async ({
+test('single landlord preloads from cache while preserving bill-only edits', async ({
   page,
   account,
 }) => {
-  const picker = page.getByRole('combobox', { name: 'Saved landlord' })
-  await expect(picker).toBeEnabled()
   const name = page.getByPlaceholder('e.g. Alex Morgan')
   await name.fill('Cached Landlord')
   await page.getByRole('button', { name: 'Save landlord', exact: true }).click()
   await expect(page.locator('.saved-landlord-status')).toHaveText(
     'Landlord saved to your account.',
   )
-  const selected = await picker.inputValue()
-  // Draft-only edits must not be overwritten by a cached saved profile.
   await name.fill('Edited on this bill')
   await expect(page.locator('.editor-bottom [role="status"]')).toHaveText(
     'All changes saved to your account',
   )
-  let listRequests = 0
+  let requests = 0
   await page.route('**/api/landlords', async (route) => {
-    if (route.request().method() === 'GET') listRequests++
+    if (route.request().method() === 'GET') requests++
     await route.continue()
   })
   await page.reload()
-  await expect(picker).toBeEnabled()
-  await expect(picker).toHaveValue(selected)
+  await expect(
+    page.getByRole('button', { name: 'Use saved landlord', exact: true }),
+  ).toBeEnabled()
   await expect(name).toHaveValue('Edited on this bill')
-  expect(listRequests).toBe(0)
-  await picker.selectOption('')
-  await picker.selectOption(selected)
+  expect(requests).toBe(0)
+  await page
+    .getByRole('button', { name: 'Use saved landlord', exact: true })
+    .click()
   await expect(name).toHaveValue('Cached Landlord')
-  await page.getByRole('button', { name: 'Refresh saved landlords' }).click()
-  await expect(picker).toBeEnabled()
-  expect(listRequests).toBe(1)
   const cacheKey = `rentflow:landlords:v1:${account.id}`
   await page.evaluate((key) => {
-    const cached = JSON.parse(sessionStorage.getItem(key)!)
-    cached.cachedAt = Date.now() - 6 * 60 * 1000
-    sessionStorage.setItem(key, JSON.stringify(cached))
+    const value = JSON.parse(sessionStorage.getItem(key)!)
+    value.cachedAt = Date.now() - 6 * 60 * 1000
+    sessionStorage.setItem(key, JSON.stringify(value))
   }, cacheKey)
   await page.reload()
-  await expect(picker).toBeEnabled()
-  await expect(picker).toHaveValue(selected)
-  expect(listRequests).toBe(2)
+  await expect(page.locator('.saved-landlords')).toHaveAttribute(
+    'aria-busy',
+    'false',
+  )
+  expect(requests).toBe(1)
   await page.evaluate(
     (key) => sessionStorage.setItem(key, 'invalid-json'),
     cacheKey,
   )
   await page.reload()
-  await expect(picker).toBeEnabled()
-  expect(listRequests).toBe(3)
-  await expect(picker.locator('option')).toHaveCount(2)
+  await expect(page.locator('.saved-landlords')).toHaveAttribute(
+    'aria-busy',
+    'false',
+  )
+  expect(requests).toBe(2)
+  await expect(
+    page.getByRole('combobox', { name: 'Saved landlord' }),
+  ).toHaveCount(0)
 })
 
 test('saved-landlord requests reject invalid input, wrong accounts, and anonymous access', async ({

@@ -52,7 +52,7 @@ body {
 button,
 input,
 textarea,
-.saved-landlords select {
+.saved-people select {
   font: inherit;
 }
 button,
@@ -409,8 +409,7 @@ label > span {
 }
 input,
 textarea,
-.saved-landlords select,
-.charge-presets select {
+.saved-people select {
   display: block;
   width: 100%;
   min-width: 0;
@@ -428,35 +427,10 @@ textarea,
 }
 input:focus,
 textarea:focus,
-.saved-landlords select:focus {
+.saved-people select:focus {
   outline: none;
   border-color: hsl(var(--primary));
   box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12);
-}
-.charge-presets select:focus {
-  outline: 2px solid hsl(var(--ring));
-  outline-offset: 2px;
-}
-.charge-presets {
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--muted));
-  padding: 12px;
-  border-radius: 8px;
-  margin-top: 12px;
-}
-.charge-presets p {
-  font-size: 12px;
-  color: hsl(var(--muted-foreground));
-  margin-top: 8px;
-}
-.charge-presets a {
-  text-decoration: underline;
-}
-.charge-presets select {
-  color-scheme: light;
-}
-.dark .charge-presets select {
-  color-scheme: dark;
 }
 .charge-calculation {
   min-width: 0;
@@ -743,45 +717,6 @@ textarea:focus,
 .onboarding-actions .primary-button {
   width: auto;
 }
-.configured-charge {
-  margin-top: 12px;
-}
-.configured-charge-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-.configured-charge-heading > strong {
-  color: hsl(var(--primary));
-}
-.configured-charge > label {
-  max-width: 260px;
-}
-.configured-rate {
-  margin-top: 12px;
-  font-size: 13px;
-}
-.configured-rate span {
-  display: inline-block;
-  font-size: 10px;
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  padding: 3px 7px;
-  margin-left: 8px;
-  border-radius: 12px;
-  color: hsl(var(--muted-foreground));
-}
-.charge-override {
-  margin-top: 12px;
-  border-top: 1px solid hsl(var(--border));
-  padding-top: 12px;
-}
-.charge-override p {
-  font-size: 12px;
-  color: hsl(var(--muted-foreground));
-}
 @media (max-width: 600px) {
   .onboarding-shell {
     padding: 20px 16px;
@@ -829,7 +764,6 @@ textarea:focus,
     padding: 18px;
   }
   .settings-card input,
-  .charge-presets select,
   .quantity-fields input {
     font-size: 16px;
   }
@@ -862,21 +796,21 @@ input::-webkit-outer-spin-button {
   grid-template-columns: 1fr 1fr;
   gap: 22px;
 }
-.saved-landlords {
+.saved-people {
   margin-bottom: 18px;
   padding: 12px;
   border: 1px solid hsl(var(--border));
   border-radius: 8px;
   background: hsl(var(--muted));
 }
-.saved-landlords select {
+.saved-people select {
   color-scheme: light;
 }
-.dark .saved-landlords select {
+.dark .saved-people select {
   color-scheme: dark;
 }
 @media (max-width: 600px) {
-  .saved-landlords select {
+  .saved-people select {
     font-size: 16px;
   }
 }
@@ -889,14 +823,14 @@ input::-webkit-outer-spin-button {
   min-height: 44px;
   text-align: left;
 }
-.saved-landlords-hint,
-.saved-landlord-status {
+.saved-people-hint,
+.saved-person-status {
   font-size: 12px;
   line-height: 1.5;
   color: hsl(var(--muted-foreground));
   margin-top: 8px;
 }
-.saved-landlord-status:empty {
+.saved-person-status:empty {
   display: none;
 }
 .party-block h3 {
@@ -2148,5 +2082,178 @@ textarea {
   }
   .line-row input {
     font-size: 16px;
+  }
+}
+
+.saved-people-compact {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  margin-bottom: 12px;
+}
+.saved-person-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  overflow-wrap: anywhere;
+}
+.saved-person-summary svg {
+  flex-shrink: 0;
+  color: hsl(var(--primary));
+}
+.saved-person-summary strong {
+  font-weight: 500;
+}
+.saved-landlord-actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* A configured charge stays in the same sortable row as its quantity and total. */
+.line-row.has-configured-charge {
+  align-items: start;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid hsl(var(--border));
+  border-radius: 0;
+}
+.configured-charge-row {
+  grid-column: 2 / 4;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 108px;
+  column-gap: 10px;
+  min-width: 0;
+}
+.configured-charge-row h3 {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.inline-charge-amount {
+  position: relative;
+  min-width: 0;
+}
+.inline-charge-amount > span {
+  position: absolute;
+  left: 8px;
+  top: 12px;
+  font-size: 13px;
+  color: hsl(var(--primary));
+  pointer-events: none;
+}
+.inline-charge-amount input {
+  text-align: right;
+  padding-left: 20px;
+  padding-right: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  color: hsl(var(--primary));
+  font-variant-numeric: tabular-nums;
+}
+.inline-charge-amount:not(.is-editing) input {
+  border-color: transparent;
+  background: transparent;
+}
+.inline-charge-controls {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 7px;
+  min-width: 0;
+}
+.inline-charge-quantity {
+  width: 80px;
+  flex-shrink: 0;
+}
+.inline-charge-rate {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 105px;
+}
+.inline-charge-rate input {
+  width: 88px;
+}
+.inline-charge-unit,
+.inline-charge-rate-text,
+.inline-charge-note {
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.inline-charge-note {
+  font-size: 11px;
+}
+.inline-charge-action {
+  min-height: 44px;
+  padding: 8px 2px;
+  font-size: 12px;
+}
+.configured-charge-row > .form-error {
+  grid-column: 1 / -1;
+}
+.add-actions {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  padding-top: 4px;
+}
+.charge-shortcuts {
+  display: contents;
+}
+.charge-shortcut,
+.charge-settings-link,
+.add-actions > .text-button {
+  min-height: 44px;
+}
+.charge-shortcut {
+  border: 1px dashed hsl(var(--border));
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.charge-shortcut:hover {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--muted));
+}
+.charge-shortcuts > p {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+.charge-shortcuts > p a {
+  text-decoration: underline;
+}
+.charge-settings-link {
+  color: hsl(var(--muted-foreground));
+  margin-left: auto;
+}
+@media (max-width: 600px) {
+  .configured-charge-row {
+    grid-template-columns: minmax(0, 1fr) 85px;
+    column-gap: 6px;
+  }
+  .inline-charge-amount input {
+    font-size: 14px;
+    padding-left: 16px;
+    padding-right: 4px;
+  }
+  .inline-charge-amount > span {
+    left: 2px;
+    top: 13px;
+  }
+  .inline-charge-quantity {
+    width: 72px;
+  }
+  .inline-charge-action {
+    flex-basis: auto;
+  }
+  .add-actions {
+    gap: 8px;
   }
 }

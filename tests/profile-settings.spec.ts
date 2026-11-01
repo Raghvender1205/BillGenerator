@@ -157,7 +157,7 @@ test('settings offer only selected charges, with quantity entry and bill-only ov
     page.getByRole('button', { name: 'Add a charge', exact: true }),
   ).toHaveCount(0)
   await expect(
-    page.getByRole('option', { name: 'Water', exact: true }),
+    page.getByRole('button', { name: 'Add Water', exact: true }),
   ).toHaveCount(0)
   await expect(page.getByText('Water', { exact: true })).toHaveCount(0)
   await page.getByPlaceholder('e.g. Jamie Parker').fill('Utility Tenant')
@@ -166,8 +166,8 @@ test('settings offer only selected charges, with quantity entry and bill-only ov
     .fill('Test property')
   await page.getByLabel('Amount for Monthly rent', { exact: true }).fill('1000')
   await page
-    .getByLabel('Add one of your charges')
-    .selectOption({ label: 'Electricity' })
+    .getByRole('button', { name: 'Add Electricity', exact: true })
+    .click()
   await page.getByLabel('Quantity for Electricity', { exact: true }).fill('120')
   await expect(
     page.getByLabel('Amount for Electricity', { exact: true }),
@@ -179,15 +179,13 @@ test('settings offer only selected charges, with quantity entry and bill-only ov
     name: 'Electricity charge details',
     exact: true,
   })
-  await power
-    .getByRole('button', { name: 'Override for this bill', exact: true })
-    .click()
+  await power.getByRole('button', { name: 'Change rate', exact: true }).click()
   await page
     .getByLabel('Rate override for Electricity', { exact: true })
     .fill('9')
   await page
-    .getByLabel('Add one of your charges')
-    .selectOption({ label: 'Maintenance' })
+    .getByRole('button', { name: 'Add Maintenance', exact: true })
+    .click()
   await expect(
     page.getByLabel('Amount for Maintenance', { exact: true }),
   ).toHaveValue('500.00')
@@ -196,11 +194,9 @@ test('settings offer only selected charges, with quantity entry and bill-only ov
     exact: true,
   })
   await maintenance
-    .getByRole('button', { name: 'Override for this bill', exact: true })
+    .getByRole('button', { name: 'Change amount', exact: true })
     .click()
-  await page
-    .getByLabel('Amount override for Maintenance', { exact: true })
-    .fill('600')
+  await page.getByLabel('Amount for Maintenance', { exact: true }).fill('600')
   await expect(page.locator('.editor-total strong')).toHaveText('₹2,680.00')
   await expect(page.locator('.editor-bottom [role="status"]')).toHaveText(
     'All changes saved to your account',
@@ -248,11 +244,11 @@ test('settings offer only selected charges, with quantity entry and bill-only ov
     page.getByLabel('Amount for Maintenance', { exact: true }),
   ).toHaveValue('600')
   await expect(
-    page.getByRole('option', { name: 'Maintenance', exact: true }),
+    page.getByRole('button', { name: 'Add Maintenance', exact: true }),
   ).toHaveCount(0)
   await page
-    .getByLabel('Add one of your charges')
-    .selectOption({ label: 'Electricity' })
+    .getByRole('button', { name: 'Add Electricity', exact: true })
+    .click()
   await page
     .getByLabel('Quantity for Electricity', { exact: true })
     .last()

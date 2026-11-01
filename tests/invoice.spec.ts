@@ -46,8 +46,8 @@ test('updates totals, restores the full draft, and downloads a PDF', async ({
   await page.evaluate(() => sessionStorage.clear())
   await page.reload()
   await page
-    .getByLabel('Add one of your charges')
-    .selectOption({ label: 'Water charges' })
+    .getByRole('button', { name: 'Add Water charges', exact: true })
+    .click()
   await page.getByRole('button', { name: 'Add discount', exact: true }).click()
   await page
     .getByRole('spinbutton', { name: 'Amount for Discount' })

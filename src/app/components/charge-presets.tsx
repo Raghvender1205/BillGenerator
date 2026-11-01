@@ -1,5 +1,7 @@
 'use client'
 import Link from 'next/link'
+import { Plus, Settings2 } from 'lucide-react'
+import type { ReactNode } from 'react'
 import type { ChargeRate, ChargeRateInput } from '../lib/charge-rates'
 
 export default function ChargePresets({
@@ -9,6 +11,7 @@ export default function ChargePresets({
   refresh,
   onAdd,
   signedIn,
+  children,
 }: {
   rates: ChargeRate[]
   loading: boolean
@@ -16,11 +19,12 @@ export default function ChargePresets({
   refresh: () => void
   onAdd: (rate: ChargeRateInput & { id?: string }) => void
   signedIn: boolean
+  children: ReactNode
 }) {
-  if (!signedIn) return null
+  if (!signedIn) return children
   const selected = rates.filter((rate) => rate.enabled)
   return (
-    <div className="charge-presets">
+    <div className="charge-shortcuts">
       {loading ? (
         <p role="status">Loading your charges…</p>
       ) : error ? (
@@ -34,28 +38,18 @@ export default function ChargePresets({
         </>
       ) : selected.length ? (
         <>
-          <label>
-            Add one of your charges
-            <select
-              value=""
-              onChange={(event) => {
-                const charge = selected.find(
-                  (rate) => rate.id === event.target.value,
-                )
-                if (charge) onAdd(charge)
-              }}
+          {selected.map((charge) => (
+            <button
+              key={charge.id}
+              type="button"
+              className="text-button charge-shortcut"
+              aria-label={`Add ${charge.name}`}
+              onClick={() => onAdd(charge)}
             >
-              <option value="">Choose a charge</option>
-              {selected.map((charge) => (
-                <option key={charge.id} value={charge.id}>
-                  {charge.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p>
-            <Link href="/settings">Manage my charges</Link>
-          </p>
+              <Plus size={15} aria-hidden="true" />
+              {charge.name}
+            </button>
+          ))}
         </>
       ) : (
         <p>
@@ -66,6 +60,17 @@ export default function ChargePresets({
           whenever you need them.
         </p>
       )}
+      {children}
+      {!loading && !error && selected.length > 0 ? (
+        <Link
+          className="text-button charge-settings-link"
+          href="/settings"
+          aria-label="Charge settings"
+        >
+          <Settings2 size={14} aria-hidden="true" />
+          Settings
+        </Link>
+      ) : null}
     </div>
   )
 }

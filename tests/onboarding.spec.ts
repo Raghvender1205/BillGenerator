@@ -44,16 +44,16 @@ test('first sign-in offers optional landlord setup and only chosen charges reach
     'Onboarding Landlord',
   )
   await expect(
-    page.getByRole('option', { name: 'Electricity', exact: true }),
+    page.getByRole('button', { name: 'Add Electricity', exact: true }),
   ).toHaveCount(1)
   await expect(
-    page.getByRole('option', { name: 'Parking', exact: true }),
+    page.getByRole('button', { name: 'Add Parking', exact: true }),
   ).toHaveCount(1)
   await expect(
-    page.getByRole('option', { name: 'Water', exact: true }),
+    page.getByRole('button', { name: 'Add Water', exact: true }),
   ).toHaveCount(0)
   await expect(
-    page.getByRole('option', { name: 'Maintenance', exact: true }),
+    page.getByRole('button', { name: 'Add Maintenance', exact: true }),
   ).toHaveCount(0)
   await page.reload()
   await expect(page).toHaveURL('/')
@@ -73,9 +73,7 @@ test('skipping onboarding persists and leaves only rent until settings are confi
   await expect(
     page.getByLabel('Amount for Monthly rent', { exact: true }),
   ).toBeVisible()
-  await expect(
-    page.getByRole('combobox', { name: 'Add one of your charges' }),
-  ).toHaveCount(0)
+  await expect(page.locator('.charge-shortcut')).toHaveCount(0)
   await expect(
     page.getByRole('button', { name: 'Add a charge', exact: true }),
   ).toHaveCount(0)
@@ -95,9 +93,7 @@ test('skipping onboarding persists and leaves only rent until settings are confi
     'Your charges have been saved.',
   )
   await page.getByRole('link', { name: 'Back to invoice builder' }).click()
-  await page
-    .getByLabel('Add one of your charges')
-    .selectOption({ label: 'Water' })
+  await page.getByRole('button', { name: 'Add Water', exact: true }).click()
   await expect(
     page.getByLabel('Amount for Water', { exact: true }),
   ).toHaveValue('200.00')

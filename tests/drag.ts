@@ -43,11 +43,11 @@ export async function dragInvoiceItem(
       await expect
         .poll(() =>
           page
-            .locator('.line-items .description-input input')
+            .locator('.line-items .drag-handle')
             .first()
-            .inputValue(),
+            .getAttribute('aria-label'),
         )
-        .toBe(title)
+        .toBe(`Reorder ${title}`)
       await session.send('Input.dispatchTouchEvent', {
         type: 'touchEnd',
         touchPoints: [],
@@ -62,14 +62,18 @@ export async function dragInvoiceItem(
     await expect
       .poll(() =>
         page
-          .locator('.line-items .description-input input')
+          .locator('.line-items .drag-handle')
           .first()
-          .inputValue(),
+          .getAttribute('aria-label'),
       )
-      .toBe(title)
+      .toBe(`Reorder ${title}`)
     await page.mouse.up()
   }
   await expect(
-    page.locator('.line-items .description-input input').first(),
-  ).toHaveValue(title)
+    page.locator('.line-items .drag-handle').first(),
+  ).toHaveAttribute('aria-label', `Reorder ${title}`)
+  // The DOM order updates before the drop animation releases the sensors.
+  await expect(
+    page.locator('[data-dnd-dragging], [data-dnd-dropping]'),
+  ).toHaveCount(0)
 }
