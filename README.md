@@ -9,11 +9,11 @@ Requires Node.js 20.9 or newer. Use npm and the committed `package-lock.json`.
 ```sh
 npm ci
 npx supabase login
-npx supabase link --project-ref hcxglckmzvqwejgyyuec
+npx supabase link --project-ref <your-project-ref>
 cp .env.example .env.local
 ```
 
-Set the server-only `SUPABASE_URL` to your project URL and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to BillGenerator's publishable key from the Supabase Connect dialog. The connected project is **BillGenerator** (`hcxglckmzvqwejgyyuec`), not ExpenseTracker. `.env.local` and Supabase's local connection metadata are ignored by Git. The Supabase CLI is pinned as a project dependency; `npm run supabase -- --help` and `npx supabase --help` both work.
+Set the server-only `SUPABASE_URL` to your project URL and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to BillGenerator's publishable key from the Supabase Connect dialog. Select the **BillGenerator** project when linking the CLI. `.env.local` and Supabase's local connection metadata are ignored by Git. The Supabase CLI is pinned as a project dependency; `npm run supabase -- --help` and `npx supabase --help` both work.
 
 ```sh
 npx supabase db push --linked
@@ -28,7 +28,7 @@ In the Supabase dashboard for BillGenerator:
 
 1. Enable **Email** under Authentication → Sign In / Providers and keep **Confirm email** enabled. Use a minimum password length of 8.
 2. Set **Site URL** to `http://localhost:3000` for local development. Set it to the public website URL for production, and set `NEXT_PUBLIC_SITE_URL` to the same URL in the deployment environment.
-3. Add redirect URLs for `/auth/callback` and `/auth/callback?next=/auth/update-password` on each permitted origin. Keep localhost redirects while developing. `supabase/config.toml` contains local development settings. The localhost redirects and password minimum are already configured on the hosted project using the restricted file in `supabase/hosted-auth/supabase/config.toml`. For later changes, review `npx supabase config diff --workdir supabase/hosted-auth --project-ref hcxglckmzvqwejgyyuec` before pushing that file.
+3. Add redirect URLs for `/auth/callback` and `/auth/callback?next=/auth/update-password` on each permitted origin. Keep localhost redirects while developing. `supabase/config.toml` contains local development settings. The localhost redirects and password minimum are already configured on the hosted project using the restricted file in `supabase/hosted-auth/supabase/config.toml`. For later changes, review `npx supabase config diff --workdir supabase/hosted-auth --project-ref <your-project-ref>` before pushing that file.
 4. Configure **custom SMTP** for public sign-up and password-reset delivery. Supabase's default sender is limited to project-team email addresses and low rate limits. See [Supabase SMTP documentation](https://supabase.com/docs/guides/auth/auth-smtp).
 
 Default Supabase email templates using `{{ .ConfirmationURL }}` work with the PKCE `/auth/callback` endpoint. Open the verification/reset link in the browser that initiated the request. For confirmation on another browser/device, use token-hash templates pointing to `/auth/confirm?token_hash={{ .TokenHash }}&type=email` (signup) or `type=recovery` (password reset). Invalid links return to sign-in with a clear message. The app accepts only fixed local destinations after authentication.
