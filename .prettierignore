@@ -1,0 +1,9 @@
+.next
+node_modules
+package-lock.json
+test-results
+playwright-report
+
+# Supabase CLI-generated local metadata
+supabase/**/.temp/**
+supabase/**/.branches/**

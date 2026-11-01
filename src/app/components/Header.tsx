@@ -1,32 +1,41 @@
-'use client'
-
 import Link from 'next/link'
-import { ModeToggle } from '@/app/components/mode-toggle'
-import { FileText } from 'lucide-react'
-
-export default function Header() {
+import { Layers2, ArrowUpRight } from 'lucide-react'
+import { ModeToggle } from './mode-toggle'
+import { currentUser } from '../lib/supabase/server'
+import { signOut } from '../auth/actions'
+export default async function Header() {
+  const user = await currentUser()
   return (
-    <header className="bg-gray-900 text-white shadow-md">
-      <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center group-hover:bg-indigo-500 transition-colors">
-            <FileText className="h-6 w-6 text-white" />
-          </div>
-          <span className="text-xl font-bold tracking-tight">RentFlow</span>
+    <header className="site-header">
+      <div className="header-inner">
+        <Link href="/" className="brand" aria-label="RentFlow home">
+          <span className="brand-symbol">
+            <Layers2 size={23} strokeWidth={1.8} aria-hidden="true" />
+          </span>
+          rentflow<span className="brand-dot">.</span>
         </Link>
-        <nav className="flex items-center gap-6">
-          <Link
-            href="/"
-            className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
-          >
-            Home
+        <nav aria-label="Main navigation">
+          <Link className="nav-current" href="/#invoice-editor">
+            Invoice builder
           </Link>
-          <Link
-            href="/about"
-            className="text-gray-300 hover:text-white transition-colors text-sm font-medium"
-          >
-            About
+          <Link className="nav-help" href="/history">
+            Invoice history <ArrowUpRight size={14} aria-hidden="true" />
           </Link>
+          <span className="nav-divider" />
+          {user ? (
+            <div className="account-menu">
+              <span className="account-email" title={user.email}>
+                {user.email}
+              </span>
+              <form action={signOut}>
+                <button className="text-button" type="submit">
+                  Sign out
+                </button>
+              </form>
+            </div>
+          ) : (
+            <Link href="/login">Sign in</Link>
+          )}
           <ModeToggle />
         </nav>
       </div>

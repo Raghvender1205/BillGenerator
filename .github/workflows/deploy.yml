@@ -1,0 +1,125 @@
+name: Check and deploy
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never interrupt a migration or production rollout with a newer push.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: npm run test:guest
+
+  production:
+    needs: check
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: https://bill-generator-eta.vercel.app
+    env:
+      SUPABASE_PROJECT_ID: hcxglckmzvqwejgyyuec
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_TEAM_ID: team_LUZ87vOoRBfOA58RLWF93PzU
+      VERCEL_PROJECT_ID: prj_M3LF0OES5r0AzOETEgV7MLIoisY9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check deployment credentials before changing the database
+        uses: actions/github-script@v7
+        with:
+          script: |
+            for (const key of ['SUPABASE_ACCESS_TOKEN', 'SUPABASE_DB_PASSWORD', 'VERCEL_TOKEN']) {
+              if (!process.env[key]) throw new Error(`Missing GitHub Actions secret: ${key}`)
+            }
+            const response = await fetch(
+              `https://api.vercel.com/v9/projects/${process.env.VERCEL_PROJECT_ID}?teamId=${process.env.VERCEL_TEAM_ID}`,
+              {
+                headers: { Authorization: `Bearer ${process.env.VERCEL_TOKEN}` },
+                signal: AbortSignal.timeout(30000),
+              },
+            )
+            if (!response.ok) throw new Error(`Vercel access check failed: HTTP ${response.status}`)
+      - name: Link the production database
+        run: npx --no-install supabase link --project-ref "$SUPABASE_PROJECT_ID" --yes
+      - name: Apply pending migrations
+        run: npx --no-install supabase db push --linked --skip-vault --yes
+      - name: Deploy the checked commit and wait for Vercel
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const endpoint = 'https://api.vercel.com'
+            const team = `teamId=${process.env.VERCEL_TEAM_ID}`
+            async function request(path, options = {}) {
+              const response = await fetch(`${endpoint}${path}?${team}`, {
+                ...options,
+                headers: {
+                  Authorization: `Bearer ${process.env.VERCEL_TOKEN}`,
+                  'Content-Type': 'application/json',
+                },
+                signal: AbortSignal.timeout(30000),
+              })
+              if (!response.ok) throw new Error(`Vercel request failed: HTTP ${response.status}`)
+              return response.json()
+            }
+            const deployment = await request('/v13/deployments', {
+              method: 'POST',
+              body: JSON.stringify({
+                name: 'bill-generator',
+                project: process.env.VERCEL_PROJECT_ID,
+                target: 'production',
+                gitSource: {
+                  type: 'github',
+                  repoId: String(context.payload.repository.id),
+                  ref: context.sha,
+                },
+              }),
+            })
+            if (!deployment.id) throw new Error('Vercel did not return a deployment ID')
+            const inspector = `https://vercel.com/raghvender1205s-projects/bill-generator/${deployment.id}`
+            core.info(`Deployment: ${inspector}`)
+            const deadline = Date.now() + 20 * 60 * 1000
+            while (Date.now() < deadline) {
+              const current = await request(`/v13/deployments/${deployment.id}`)
+              if (current.readyState === 'READY') {
+                await core.summary.addLink('Production deployment', inspector).write()
+                return
+              }
+              if (['ERROR', 'CANCELED', 'BLOCKED'].includes(current.readyState)) {
+                throw new Error(`Vercel deployment ${current.readyState}. Inspect ${inspector}`)
+              }
+              await new Promise(resolve => setTimeout(resolve, 10000))
+            }
+            throw new Error(`Timed out waiting for Vercel. Inspect ${inspector} before retrying.`)
