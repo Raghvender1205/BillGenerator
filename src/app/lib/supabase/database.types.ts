@@ -172,6 +172,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      rentflow_complete_onboarding_with_tenant: {
+        Args: {
+          p_landlord: Json
+          p_tenant: Json
+          p_charges: Json
+          p_skip: boolean
+        }
+        Returns: Json
+      }
       rentflow_save_charge_preferences: {
         Args: { p_charges: Json }
         Returns: Database['public']['Tables']['rentflow_charge_rates']['Row'][]

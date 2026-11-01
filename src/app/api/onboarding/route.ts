@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { currentUser, createClient } from '../../lib/supabase/server'
 import { sameOrigin } from '../../lib/request-origin'
 import { validLandlord } from '../../lib/landlords'
+import { validTenant } from '../../lib/tenants'
 import { validChargePreferences } from '../../lib/charge-preferences'
 
 export async function POST(request: Request) {
@@ -24,24 +25,31 @@ export async function POST(request: Request) {
   } catch {
     return reply({ error: 'Invalid setup details.' }, 400)
   }
+  const tenant = input?.tenant ?? null
   if (
     typeof input?.skip !== 'boolean' ||
     (!input.skip &&
       (!validChargePreferences(input.charges) ||
-        (input.landlord !== null && !validLandlord(input.landlord))))
+        (input.landlord !== null && !validLandlord(input.landlord)) ||
+        (tenant !== null && !validTenant(tenant))))
   )
     return reply(
       {
-        error: 'Check the landlord details and complete each selected charge.',
+        error:
+          'Check the landlord and tenant details and complete each selected charge.',
       },
       400,
     )
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc('rentflow_complete_onboarding', {
-    p_landlord: input.skip ? null : input.landlord,
-    p_charges: input.skip ? [] : input.charges,
-    p_skip: input.skip,
-  })
+  const { data, error } = await supabase.rpc(
+    'rentflow_complete_onboarding_with_tenant',
+    {
+      p_landlord: input.skip ? null : input.landlord,
+      p_tenant: input.skip ? null : tenant,
+      p_charges: input.skip ? [] : input.charges,
+      p_skip: input.skip,
+    },
+  )
   if (error)
     return reply(
       {
@@ -50,12 +58,31 @@ export async function POST(request: Request) {
       },
       503,
     )
-  const landlords = data
-    ? await supabase
-        .from('rentflow_landlords')
-        .select('id, name, phone')
-        .eq('user_id', user.id)
-        .order('name')
-    : null
-  return reply({ complete: true, selected: data, landlords: landlords?.data })
+  const completed = data as {
+    landlord_id: string | null
+    tenant_id: string | null
+  }
+  const [landlords, tenants] = await Promise.all([
+    completed.landlord_id
+      ? supabase
+          .from('rentflow_landlords')
+          .select('id, name, phone')
+          .eq('user_id', user.id)
+          .order('name')
+      : null,
+    completed.tenant_id
+      ? supabase
+          .from('rentflow_tenants')
+          .select('id, name, contact, address')
+          .eq('user_id', user.id)
+          .order('name')
+      : null,
+  ])
+  return reply({
+    complete: true,
+    selected: completed.landlord_id,
+    landlords: landlords?.data,
+    selectedTenant: completed.tenant_id,
+    tenants: tenants?.data,
+  })
 }
