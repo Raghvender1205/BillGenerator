@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      rentflow_charge_rates: {
+        Row: {
+          id: string
+          name: string
+          rate: number
+          unit: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          rate: number
+          unit: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          rate?: number
+          unit?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       rentflow_drafts: {
         Row: {
           invoice: Json

@@ -1,5 +1,11 @@
 import { jsPDF } from 'jspdf'
-import { amountValue, displayDate, totals, type Invoice } from './invoice'
+import {
+  lineAmount,
+  calculationLabel,
+  displayDate,
+  totals,
+  type Invoice,
+} from './invoice'
 
 // This module (and jsPDF) is loaded only when the user requests a download.
 export async function exportInvoice(invoice: Invoice) {
@@ -68,7 +74,7 @@ export async function exportInvoice(invoice: Invoice) {
     doc.setFontSize(10)
     doc.setTextColor(35, 49, 57)
     const lines: string[] = doc.splitTextToSize(
-      `${item.title}${item.type === 'discount' ? ' (discount)' : ''}`,
+      `${item.title}${item.type === 'discount' ? ' (discount)' : ''}${item.quantity !== undefined ? `\n${calculationLabel(item)}` : ''}`,
       100,
     )
     if (y + lines.length * 5 + 5 > bottom) {
@@ -82,7 +88,7 @@ export async function exportInvoice(invoice: Invoice) {
       y += 5
     }
     doc.text(
-      `${item.type === 'discount' ? '-' : ''}${currency(amountValue(item.amount))}`,
+      `${item.type === 'discount' ? '-' : ''}${currency(lineAmount(item))}`,
       185,
       startY,
       { align: 'right' },

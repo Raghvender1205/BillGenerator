@@ -16,6 +16,52 @@ async function fillGuest(page: Page) {
     .fill('18000')
 }
 
+test('unit-based guest charges persist and reorder alongside fixed charges and discounts', async ({
+  page,
+  isMobile,
+}) => {
+  const apiCalls: string[] = []
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/'))
+      apiCalls.push(request.url())
+  })
+  await fillGuest(page)
+  await page.getByLabel('Add a calculated charge').selectOption('electricity')
+  await page.getByLabel('Quantity for Electricity', { exact: true }).fill('120')
+  await page
+    .getByLabel('Rate per unit for Electricity', { exact: true })
+    .fill('8.5')
+  await expect(
+    page.getByLabel('Amount for Electricity', { exact: true }),
+  ).toHaveValue('1020.00')
+  await page.getByRole('button', { name: 'Add discount', exact: true }).click()
+  await page.getByLabel('Amount for Discount', { exact: true }).fill('100')
+  await dragInvoiceItem(page, 'Discount', 'Monthly rent', isMobile)
+  await dragInvoiceItem(page, 'Electricity', 'Discount', isMobile)
+  await expect(page.locator('.editor-bottom [role="status"]')).toHaveText(
+    'Draft saved in this browser',
+  )
+  await page.reload()
+  await expect(
+    page.getByLabel('Quantity for Electricity', { exact: true }),
+  ).toHaveValue('120')
+  await expect(
+    page.getByLabel('Amount for Electricity', { exact: true }),
+  ).toHaveValue('1020.00')
+  await page
+    .getByRole('button', {
+      name: 'Use fixed amount for Electricity',
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByLabel('Quantity for Electricity', { exact: true }),
+  ).toHaveCount(0)
+  await page.getByLabel('Amount for Electricity', { exact: true }).fill('1030')
+  await expect(page.locator('.editor-total strong')).toHaveText('₹18,930.00')
+  expect(apiCalls).toEqual([])
+})
+
 test('guests generate PDFs, restore details, and keep parties for the next bill without an API', async ({
   page,
 }) => {

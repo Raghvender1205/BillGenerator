@@ -37,6 +37,10 @@ The local CLI is already logged in on this machine. To switch accounts, run `npx
 
 ## Drafts and invoice numbering
 
+**Profile settings:** Signed-in users can manage landlords and reusable charge rates from `/settings`. Save a name (such as Electricity), unit label (such as kWh), and per-unit rate. Rates are private to the account and cached in the current tab for five minutes, with a manual refresh and sign-out cleanup.
+
+**Calculated charges:** Use **Add a calculated charge** to choose a saved rate, electricity, water, or another custom charge. Enter the quantity; the amount is calculated as quantity × rate, rounded once to paise. Inputs support four decimal places. The calculator button beside a regular charge opens its unit-based calculation; **Use fixed amount** switches it back. Each bill stores its own quantity, rate, and unit, so changing a profile rate never changes existing drafts or history. The calculation appears in the preview and exported PDF. Guests can enter quantities and rates directly without an account.
+
 **Saved landlords:** Signed-in users can save multiple landlord names and phone numbers from the bill editor. Choose a saved landlord to prefill both fields, update a selected profile, or save the current details as a new profile. Removing a profile leaves existing bills unchanged. Profiles sync across devices and are private to each account; guests do not have a landlord library. Starting a new bill keeps the current landlord as before. The selected profile and landlord list are cached per account in this tab's sessionStorage for five minutes, so returning to the editor avoids another list query. Saving, editing, and deleting update the cache immediately. Use **Refresh saved landlords** for changes from another device. Signing out clears the cache; blocked or corrupt browser storage falls back to the API. The invoice draft still loads normally and cached profiles never overwrite its edited fields.
 
 **Guests:** The full builder works without Supabase configuration or an account. Drafts, saved landlord/tenant details, item order, and monthly numbering are stored in localStorage on this browser. Old `rentflow_draft_v1`, `rentflow_landlord_info`, and `rentflow_tenant_info` data are restored when valid. Starting fresh keeps the people/property details. Clearing browser data removes guest drafts and counters. When storage is blocked or corrupt, generation and PDF downloads still work, with a warning if changes cannot be saved. Full invoice data is not put in cookies or sent to the backend for guests.
@@ -61,6 +65,7 @@ npm test
 npm run test:guest
 npx supabase db query --linked --file supabase/tests/account_isolation.sql
 npx supabase db query --linked --file supabase/tests/landlord_isolation.sql
+npx supabase db query --linked --file supabase/tests/charge_rate_isolation.sql
 npx supabase db advisors --linked --type security --level warn
 ```
 

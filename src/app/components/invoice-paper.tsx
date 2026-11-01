@@ -1,6 +1,7 @@
 import { Layers2 } from 'lucide-react'
 import {
-  amountValue,
+  lineAmount,
+  calculationLabel,
   displayDate,
   money,
   totals,
@@ -57,10 +58,13 @@ export default function InvoicePaper({ invoice }: { invoice: Invoice }) {
                 {item.title ||
                   (item.type === 'discount' ? 'Discount' : 'Untitled charge')}
                 {item.type === 'discount' ? <small>Discount</small> : null}
+                {item.quantity !== undefined ? (
+                  <small>{calculationLabel(item)}</small>
+                ) : null}
               </span>
               <strong>
                 {item.type === 'discount' ? '−' : ''}
-                {money(amountValue(item.amount))}
+                {money(lineAmount(item))}
               </strong>
             </div>
           ))

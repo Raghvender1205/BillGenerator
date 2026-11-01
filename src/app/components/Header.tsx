@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Layers2, ArrowUpRight } from 'lucide-react'
+import { Layers2, ArrowUpRight, Settings2 } from 'lucide-react'
 import { ModeToggle } from './mode-toggle'
 import { currentUser } from '../lib/supabase/server'
 import SignOutForm from './sign-out-form'
@@ -24,6 +24,14 @@ export default async function Header() {
           <span className="nav-divider" />
           {user ? (
             <div className="account-menu">
+              <Link
+                href="/settings"
+                className="profile-link"
+                aria-label="Profile settings"
+              >
+                <Settings2 size={19} aria-hidden="true" />
+                <span>Profile settings</span>
+              </Link>
               <span className="account-email" title={user.email}>
                 {user.email}
               </span>

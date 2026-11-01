@@ -13,10 +13,12 @@ export default function SavedLandlords({
   userId,
   landlord,
   onSelect,
+  rememberSelection = true,
 }: {
   userId: string
   landlord: LandlordDetails
   onSelect: (landlord: LandlordDetails) => void
+  rememberSelection?: boolean
 }) {
   const [profiles, setProfiles] = useState<SavedLandlord[]>([])
   const [selected, setSelected] = useState('')
@@ -41,7 +43,8 @@ export default function SavedLandlords({
           cachedAt.current = cache.cachedAt
           setProfiles(cache.profiles)
           setSelected(
-            cache.profiles.some((profile) => profile.id === cache.selected)
+            rememberSelection &&
+              cache.profiles.some((profile) => profile.id === cache.selected)
               ? cache.selected
               : '',
           )
@@ -61,7 +64,7 @@ export default function SavedLandlords({
             : ''
           cachedAt.current = Date.now()
           setProfiles(data)
-          setSelected(id)
+          setSelected(rememberSelection ? id : '')
           writeLandlordCache(userId, {
             profiles: data,
             selected: id,
@@ -76,7 +79,7 @@ export default function SavedLandlords({
         if (!controller.signal.aborted) setLoading(false)
       })
     return () => controller.abort()
-  }, [userId, retry])
+  }, [userId, retry, rememberSelection])
 
   async function save(method: 'POST' | 'PATCH' | 'DELETE') {
     if (

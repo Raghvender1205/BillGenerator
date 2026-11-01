@@ -5,6 +5,7 @@ import {
   ArrowDownToLine,
   ArrowUpRight,
   Building2,
+  Calculator,
   Check,
   CircleHelp,
   Eye,
@@ -18,7 +19,8 @@ import {
   X,
 } from 'lucide-react'
 import {
-  amountValue,
+  lineAmount,
+  isInvoice,
   emptyInvoice,
   money,
   totals,
@@ -33,6 +35,11 @@ import { DragDropProvider } from '@dnd-kit/react'
 import { isSortable } from '@dnd-kit/react/sortable'
 import SortableInvoiceRow from './sortable-invoice-row'
 import SavedLandlords from './saved-landlords'
+import ChargePresets from './charge-presets'
+import ChargeCalculation from './charge-calculation'
+import { useChargeRates } from '../lib/use-charge-rates'
+import { calculatedAmount, type ChargeRateInput } from '../lib/charge-rates'
+import { landlordCacheLifetime, readLandlordCache } from '../lib/landlord-cache'
 
 function SectionHeading({
   number,
@@ -58,6 +65,7 @@ function SectionHeading({
 }
 
 export default function BillGenerator({ userId }: { userId?: string }) {
+  const chargeRates = useChargeRates(userId)
   const [store] = useState(() =>
     userId ? createInvoiceStore(userId) : createGuestInvoiceStore(),
   )
@@ -87,6 +95,18 @@ export default function BillGenerator({ userId }: { userId?: string }) {
     void initialization.current
       .then((draft) => {
         if (!active) return
+        if (userId && !draft.landlord.name && !draft.landlord.phone) {
+          const cache = readLandlordCache(userId)
+          const selected =
+            cache && Date.now() - cache.cachedAt < landlordCacheLifetime
+              ? cache.profiles.find((profile) => profile.id === cache.selected)
+              : null
+          if (selected)
+            draft = {
+              ...draft,
+              landlord: { name: selected.name, phone: selected.phone },
+            }
+        }
         latest.current = draft
         setInvoice(draft)
         if (userId) {
@@ -181,10 +201,52 @@ export default function BillGenerator({ userId }: { userId?: string }) {
   function updateItem(id: string, patch: Partial<LineItem>) {
     update({
       ...invoice,
-      items: invoice.items.map((item) =>
-        item.id === id ? { ...item, ...patch } : item,
-      ),
+      items: invoice.items.map((item) => {
+        if (item.id !== id) return item
+        const next = { ...item, ...patch }
+        if (next.quantity !== undefined)
+          next.amount = calculatedAmount(next.quantity, next.rate || '')
+        return next
+      }),
     })
+  }
+  function addCalculatedCharge(preset: ChargeRateInput) {
+    const id = crypto.randomUUID()
+    update({
+      ...invoice,
+      items: [
+        ...invoice.items,
+        {
+          id,
+          title: preset.name,
+          amount: '',
+          type: 'regular',
+          quantity: '',
+          rate: preset.rate,
+          unit: preset.unit,
+        },
+      ],
+    })
+    requestAnimationFrame(() =>
+      document.getElementById(`quantity-${id}`)?.focus(),
+    )
+  }
+  function editCalculation(item: LineItem) {
+    if (item.quantity === undefined) {
+      const preset = chargeRates.rates.find(
+        (rate) => rate.name.toLowerCase() === item.title.trim().toLowerCase(),
+      )
+      updateItem(item.id, {
+        quantity: '',
+        rate: preset?.rate || '',
+        unit:
+          preset?.unit ||
+          (item.title.toLowerCase() === 'electricity' ? 'kWh' : 'units'),
+      })
+    }
+    requestAnimationFrame(() =>
+      document.getElementById(`quantity-${item.id}`)?.focus(),
+    )
   }
   function reorderItem(from: number, to: number) {
     if (
@@ -205,9 +267,16 @@ export default function BillGenerator({ userId }: { userId?: string }) {
   }
   async function download() {
     if (!form.current?.reportValidity()) return
+    if (!isInvoice(invoice)) {
+      setError(
+        'Check the quantities and rates. Calculated charges must be at most ₹1,000,000,000.',
+      )
+      document.getElementById('charges')?.focus()
+      return
+    }
     if (
       !invoice.items.some(
-        (item) => item.type === 'regular' && amountValue(item.amount) > 0,
+        (item) => item.type === 'regular' && lineAmount(item) > 0,
       )
     ) {
       setError('Add at least one charge greater than zero.')
@@ -517,7 +586,9 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                       disabled={!ready || invoice.items.length < 2}
                       key={item.id}
                     >
-                      <div className="description-input">
+                      <div
+                        className={`description-input ${item.type === 'regular' ? 'calculable-description' : ''}`}
+                      >
                         <input
                           id={`item-${index}`}
                           required
@@ -533,6 +604,21 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                             updateItem(item.id, { title: e.target.value })
                           }
                         />
+                        {item.type === 'regular' ? (
+                          <button
+                            type="button"
+                            className="icon-button line-calculator"
+                            aria-label={
+                              item.quantity === undefined
+                                ? `Calculate ${item.title || 'charge'} by units`
+                                : `Edit ${item.title || 'charge'} calculation`
+                            }
+                            title="Calculate with units and a rate"
+                            onClick={() => editCalculation(item)}
+                          >
+                            <Calculator size={16} aria-hidden="true" />
+                          </button>
+                        ) : null}
                       </div>
                       <input
                         type="number"
@@ -544,6 +630,7 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                         aria-label={`Amount for ${item.title || `item ${index + 1}`}`}
                         placeholder="0.00"
                         value={item.amount}
+                        readOnly={item.quantity !== undefined}
                         onChange={(e) =>
                           updateItem(item.id, { amount: e.target.value })
                         }
@@ -567,6 +654,15 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                   ))}
                 </div>
               </DragDropProvider>
+              {invoice.items
+                .filter((item) => item.quantity !== undefined)
+                .map((item) => (
+                  <ChargeCalculation
+                    key={item.id}
+                    item={item}
+                    onChange={(patch) => updateItem(item.id, patch)}
+                  />
+                ))}
               <div className="add-actions">
                 <button
                   type="button"
@@ -583,6 +679,14 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                   <Plus size={15} aria-hidden="true" /> Add discount
                 </button>
               </div>
+              <ChargePresets
+                rates={chargeRates.rates}
+                loading={chargeRates.loading}
+                error={chargeRates.error}
+                refresh={chargeRates.refresh}
+                onAdd={addCalculatedCharge}
+                signedIn={Boolean(userId)}
+              />
               <div className="editor-totals">
                 <div>
                   <span>Subtotal</span>

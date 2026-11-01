@@ -1,8 +1,13 @@
+import { calculatedAmount, validDecimal } from './charge-rates'
+
 export type LineItem = {
   id: string
   title: string
   amount: string
   type: 'regular' | 'discount'
+  quantity?: string
+  rate?: string
+  unit?: string
 }
 export type Invoice = {
   landlord: { name: string; phone: string }
@@ -45,15 +50,48 @@ export function totals(items: LineItem[]) {
   let subtotal = 0,
     discount = 0
   for (const item of items) {
-    if (item.type === 'discount')
-      discount += Math.round(amountValue(item.amount) * 100)
-    else subtotal += Math.round(amountValue(item.amount) * 100)
+    if (item.type === 'discount') discount += Math.round(lineAmount(item) * 100)
+    else subtotal += Math.round(lineAmount(item) * 100)
   }
   return {
     subtotal: subtotal / 100,
     discount: discount / 100,
     total: (subtotal - discount) / 100,
   }
+}
+export function lineAmount(item: LineItem) {
+  return amountValue(
+    item.quantity === undefined
+      ? item.amount
+      : calculatedAmount(item.quantity, item.rate || ''),
+  )
+}
+export function calculationLabel(item: LineItem) {
+  return item.quantity === undefined
+    ? ''
+    : `${item.quantity || '0'} ${item.unit || 'units'} x Rs. ${item.rate || '0'} / ${item.unit || 'units'}`
+}
+function validCalculation(item: Record<string, unknown>) {
+  if (
+    item.quantity === undefined &&
+    item.rate === undefined &&
+    item.unit === undefined
+  )
+    return true
+  return (
+    item.type === 'regular' &&
+    typeof item.quantity === 'string' &&
+    (item.quantity === '' || validDecimal(item.quantity)) &&
+    typeof item.rate === 'string' &&
+    (item.rate === '' || validDecimal(item.rate)) &&
+    typeof item.unit === 'string' &&
+    item.unit.trim().length > 0 &&
+    item.unit.length <= 24 &&
+    (item.quantity === '' ||
+      item.rate === '' ||
+      calculatedAmount(item.quantity, item.rate) !== '') &&
+    item.amount === calculatedAmount(item.quantity, item.rate)
+  )
 }
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -79,6 +117,7 @@ export function isInvoice(value: unknown): value is Invoice {
         typeof item.id === 'string' &&
         typeof item.title === 'string' &&
         typeof item.amount === 'string' &&
+        validCalculation(item) &&
         (item.amount === '' ||
           (Number.isFinite(Number(item.amount)) &&
             Number(item.amount) >= 0 &&
