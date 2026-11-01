@@ -72,7 +72,68 @@ test('saved landlords can be reused, edited, and removed without changing invoic
   await expect(name).toHaveValue('Saved Landlord B')
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
   await expect(picker).toHaveCount(0)
+  expect(
+    await page.evaluate(() =>
+      Object.keys(sessionStorage).some((key) =>
+        key.startsWith('rentflow:landlords:'),
+      ),
+    ),
+  ).toBe(false)
   await expect(page.getByPlaceholder('e.g. Alex Morgan')).toHaveValue('')
+})
+
+test('selected landlord preloads from the account cache without a list request', async ({
+  page,
+  account,
+}) => {
+  const picker = page.getByRole('combobox', { name: 'Saved landlord' })
+  await expect(picker).toBeEnabled()
+  const name = page.getByPlaceholder('e.g. Alex Morgan')
+  await name.fill('Cached Landlord')
+  await page.getByRole('button', { name: 'Save landlord', exact: true }).click()
+  await expect(page.locator('.saved-landlord-status')).toHaveText(
+    'Landlord saved to your account.',
+  )
+  const selected = await picker.inputValue()
+  // Draft-only edits must not be overwritten by a cached saved profile.
+  await name.fill('Edited on this bill')
+  await expect(page.locator('.editor-bottom [role="status"]')).toHaveText(
+    'All changes saved to your account',
+  )
+  let listRequests = 0
+  await page.route('**/api/landlords', async (route) => {
+    if (route.request().method() === 'GET') listRequests++
+    await route.continue()
+  })
+  await page.reload()
+  await expect(picker).toBeEnabled()
+  await expect(picker).toHaveValue(selected)
+  await expect(name).toHaveValue('Edited on this bill')
+  expect(listRequests).toBe(0)
+  await picker.selectOption('')
+  await picker.selectOption(selected)
+  await expect(name).toHaveValue('Cached Landlord')
+  await page.getByRole('button', { name: 'Refresh saved landlords' }).click()
+  await expect(picker).toBeEnabled()
+  expect(listRequests).toBe(1)
+  const cacheKey = `rentflow:landlords:v1:${account.id}`
+  await page.evaluate((key) => {
+    const cached = JSON.parse(sessionStorage.getItem(key)!)
+    cached.cachedAt = Date.now() - 6 * 60 * 1000
+    sessionStorage.setItem(key, JSON.stringify(cached))
+  }, cacheKey)
+  await page.reload()
+  await expect(picker).toBeEnabled()
+  await expect(picker).toHaveValue(selected)
+  expect(listRequests).toBe(2)
+  await page.evaluate(
+    (key) => sessionStorage.setItem(key, 'invalid-json'),
+    cacheKey,
+  )
+  await page.reload()
+  await expect(picker).toBeEnabled()
+  expect(listRequests).toBe(3)
+  await expect(picker.locator('option')).toHaveCount(2)
 })
 
 test('saved-landlord requests reject invalid input, wrong accounts, and anonymous access', async ({

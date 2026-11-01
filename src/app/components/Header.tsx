@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Layers2, ArrowUpRight } from 'lucide-react'
 import { ModeToggle } from './mode-toggle'
 import { currentUser } from '../lib/supabase/server'
-import { signOut } from '../auth/actions'
+import SignOutForm from './sign-out-form'
 export default async function Header() {
   const user = await currentUser()
   return (
@@ -27,11 +27,7 @@ export default async function Header() {
               <span className="account-email" title={user.email}>
                 {user.email}
               </span>
-              <form action={signOut}>
-                <button className="text-button" type="submit">
-                  Sign out
-                </button>
-              </form>
+              <SignOutForm />
             </div>
           ) : (
             <Link href="/login">Sign in</Link>

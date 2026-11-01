@@ -1,8 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { LandlordDetails, SavedLandlord } from '../lib/landlords'
 import { validLandlord } from '../lib/landlords'
+import {
+  landlordCacheLifetime,
+  readLandlordCache,
+  writeLandlordCache,
+} from '../lib/landlord-cache'
 
 export default function SavedLandlords({
   userId,
@@ -20,19 +25,49 @@ export default function SavedLandlords({
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [retry, setRetry] = useState(0)
+  const cachedAt = useRef(0)
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch('/api/landlords', {
-      cache: 'no-store',
-      headers: { 'X-RentFlow-User': userId },
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const data = await response.json()
+    Promise.resolve()
+      .then(async () => {
+        if (controller.signal.aborted) return
+        const cache = readLandlordCache(userId)
+        if (
+          retry === 0 &&
+          cache &&
+          Date.now() - cache.cachedAt < landlordCacheLifetime
+        ) {
+          cachedAt.current = cache.cachedAt
+          setProfiles(cache.profiles)
+          setSelected(
+            cache.profiles.some((profile) => profile.id === cache.selected)
+              ? cache.selected
+              : '',
+          )
+          return
+        }
+        const response = await fetch('/api/landlords', {
+          cache: 'no-store',
+          headers: { 'X-RentFlow-User': userId },
+          signal: controller.signal,
+        })
+        const data: SavedLandlord[] & { error?: string } = await response.json()
         if (!response.ok)
           throw new Error(data.error || 'Could not load saved landlords.')
-        if (!controller.signal.aborted) setProfiles(data)
+        if (!controller.signal.aborted) {
+          const id = data.some((profile) => profile.id === cache?.selected)
+            ? cache!.selected
+            : ''
+          cachedAt.current = Date.now()
+          setProfiles(data)
+          setSelected(id)
+          writeLandlordCache(userId, {
+            profiles: data,
+            selected: id,
+            cachedAt: cachedAt.current,
+          })
+        }
       })
       .catch((error: Error) => {
         if (!controller.signal.aborted) setError(error.message)
@@ -67,20 +102,31 @@ export default function SavedLandlords({
       if (!response.ok)
         throw new Error(data.error || 'Could not save this landlord.')
       if (method === 'DELETE') {
-        setProfiles((previous) =>
-          previous.filter((profile) => profile.id !== selected),
-        )
+        const next = profiles.filter((profile) => profile.id !== selected)
+        setProfiles(next)
         setSelected('')
+        cachedAt.current = Date.now()
+        writeLandlordCache(userId, {
+          profiles: next,
+          selected: '',
+          cachedAt: cachedAt.current,
+        })
         setMessage(
           'Saved landlord removed. Your invoice details are unchanged.',
         )
       } else {
-        setProfiles((previous) =>
-          [...previous.filter((profile) => profile.id !== data.id), data].sort(
-            (a, b) => a.name.localeCompare(b.name),
-          ),
-        )
+        const next = [
+          ...profiles.filter((profile) => profile.id !== data.id),
+          data,
+        ].sort((a, b) => a.name.localeCompare(b.name))
+        setProfiles(next)
         setSelected(data.id)
+        cachedAt.current = Date.now()
+        writeLandlordCache(userId, {
+          profiles: next,
+          selected: data.id,
+          cachedAt: cachedAt.current,
+        })
         setMessage('Landlord saved to your account.')
       }
     } catch (error) {
@@ -104,6 +150,11 @@ export default function SavedLandlords({
           onChange={(event) => {
             const id = event.target.value
             setSelected(id)
+            writeLandlordCache(userId, {
+              profiles,
+              selected: id,
+              cachedAt: cachedAt.current,
+            })
             setMessage('')
             const profile = profiles.find((profile) => profile.id === id)
             if (profile) {
@@ -162,24 +213,22 @@ export default function SavedLandlords({
         ) : null}
       </div>
       {error ? (
-        <>
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-          <button
-            type="button"
-            className="text-button"
-            disabled={busy || loading}
-            onClick={() => {
-              setLoading(true)
-              setError('')
-              setRetry((value) => value + 1)
-            }}
-          >
-            Reload saved landlords
-          </button>
-        </>
+        <p className="form-error" role="alert">
+          {error}
+        </p>
       ) : null}
+      <button
+        type="button"
+        className="text-button"
+        disabled={busy || loading}
+        onClick={() => {
+          setLoading(true)
+          setError('')
+          setRetry((value) => value + 1)
+        }}
+      >
+        Refresh saved landlords
+      </button>
       <p className="saved-landlord-status" role="status">
         {message}
       </p>
