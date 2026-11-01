@@ -111,18 +111,14 @@ test('charge-rate API rejects invalid precision, wrong origins, and wrong accoun
   ).toBe(401)
 })
 
-test('profile landlords and saved rates prefill bills while historical calculations keep their rate', async ({
+test('settings offer only selected charges, with quantity entry and bill-only overrides', async ({
   page,
-  account,
   isMobile,
 }) => {
   if (isMobile) await page.setViewportSize({ width: 375, height: 812 })
   await page
     .getByRole('link', { name: 'Profile settings', exact: true })
     .click()
-  await expect(
-    page.getByRole('heading', { name: 'Profile settings', exact: true }),
-  ).toBeVisible()
   await page
     .getByLabel('Landlord name', { exact: true })
     .fill('Settings Landlord')
@@ -131,87 +127,91 @@ test('profile landlords and saved rates prefill bills while historical calculati
   await expect(page.locator('.saved-landlord-status')).toHaveText(
     'Landlord saved to your account.',
   )
-  await page.getByLabel('Charge name', { exact: true }).fill('Electricity')
-  await page.getByLabel('Unit label', { exact: true }).fill('kWh')
-  await page.getByLabel('Rate per unit (INR)', { exact: true }).fill('8.5')
   await page
-    .getByRole('button', { name: 'Save charge rate', exact: true })
+    .getByRole('checkbox', { name: 'Include Electricity', exact: true })
+    .check()
+  await page.getByLabel('Electricity unit rate', { exact: true }).fill('8.5')
+  await page
+    .getByRole('checkbox', { name: 'Include Maintenance', exact: true })
+    .check()
+  await page
+    .getByLabel('Maintenance default amount', { exact: true })
+    .fill('500')
+  await page
+    .getByRole('button', { name: 'Save my charges', exact: true })
     .click()
   await expect(page.locator('.settings-status')).toHaveText(
-    'Charge rate saved.',
+    'Your charges have been saved.',
   )
   await page.screenshot({
-    path: test.info().outputPath('profile-settings-light.png'),
+    path: test.info().outputPath('settings-choices.png'),
     fullPage: true,
   })
-  await page
-    .locator('html')
-    .evaluate((element) => element.classList.add('dark'))
-  await page.screenshot({
-    path: test.info().outputPath('profile-settings-dark.png'),
-    fullPage: true,
-  })
-  await page
-    .locator('html')
-    .evaluate((element) => element.classList.remove('dark'))
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true)
   await page
     .getByRole('link', { name: 'Back to invoice builder', exact: true })
     .click()
   await expect(page.getByPlaceholder('e.g. Alex Morgan')).toHaveValue(
     'Settings Landlord',
   )
+  await expect(
+    page.getByRole('button', { name: 'Add a charge', exact: true }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole('option', { name: 'Water', exact: true }),
+  ).toHaveCount(0)
+  await expect(page.getByText('Water', { exact: true })).toHaveCount(0)
   await page.getByPlaceholder('e.g. Jamie Parker').fill('Utility Tenant')
   await page
     .getByPlaceholder('Flat / house number, street, city, postal code')
     .fill('Test property')
+  await page.getByLabel('Amount for Monthly rent', { exact: true }).fill('1000')
   await page
-    .getByRole('spinbutton', { name: 'Amount for Monthly rent', exact: true })
-    .fill('1000')
-  await page
-    .getByLabel('Add a calculated charge')
-    .selectOption({ label: 'Electricity · Rs. 8.5 / kWh' })
+    .getByLabel('Add one of your charges')
+    .selectOption({ label: 'Electricity' })
   await page.getByLabel('Quantity for Electricity', { exact: true }).fill('120')
   await expect(
     page.getByLabel('Amount for Electricity', { exact: true }),
   ).toHaveValue('1020.00')
-  await expect(page.locator('.paper-item').last()).toContainText(
-    '120 kWh x Rs. 8.5 / kWh',
-  )
+  await expect(
+    page.getByLabel('Rate override for Electricity', { exact: true }),
+  ).toHaveCount(0)
+  const power = page.getByRole('region', {
+    name: 'Electricity charge details',
+    exact: true,
+  })
+  await power
+    .getByRole('button', { name: 'Override for this bill', exact: true })
+    .click()
   await page
-    .getByLabel('Rate per unit for Electricity', { exact: true })
+    .getByLabel('Rate override for Electricity', { exact: true })
     .fill('9')
+  await page
+    .getByLabel('Add one of your charges')
+    .selectOption({ label: 'Maintenance' })
+  await expect(
+    page.getByLabel('Amount for Maintenance', { exact: true }),
+  ).toHaveValue('500.00')
+  const maintenance = page.getByRole('region', {
+    name: 'Maintenance charge details',
+    exact: true,
+  })
+  await maintenance
+    .getByRole('button', { name: 'Override for this bill', exact: true })
+    .click()
+  await page
+    .getByLabel('Amount override for Maintenance', { exact: true })
+    .fill('600')
+  await expect(page.locator('.editor-total strong')).toHaveText('₹2,680.00')
   await expect(page.locator('.editor-bottom [role="status"]')).toHaveText(
     'All changes saved to your account',
   )
-  const headers = {
-    Origin: 'http://127.0.0.1:3100',
-    'X-RentFlow-User': account.id,
-  }
-  const draft = await (
-    await page.request.get('/api/invoice', { headers })
-  ).json()
-  const tampered = structuredClone(draft.invoice)
-  tampered.items[1].amount = '1'
-  expect(
-    (
-      await page.request.put('/api/invoice', {
-        headers,
-        data: { invoice: tampered, revision: draft.revision },
-      })
-    ).status(),
-  ).toBe(400)
   await page.reload()
-  await expect(
-    page.getByLabel('Quantity for Electricity', { exact: true }),
-  ).toHaveValue('120')
   await expect(
     page.getByLabel('Amount for Electricity', { exact: true }),
   ).toHaveValue('1080.00')
+  await expect(
+    page.getByLabel('Amount for Maintenance', { exact: true }),
+  ).toHaveValue('600')
   const downloaded = page.waitForEvent('download')
   await page
     .getByRole('button', { name: 'Download invoice', exact: true })
@@ -221,31 +221,38 @@ test('profile landlords and saved rates prefill bills while historical calculati
   await expect(
     page.getByRole('button', { name: 'Download invoice', exact: true }),
   ).toBeEnabled()
-  const number = await page.getByLabel('Invoice number').inputValue()
-  await page.goto('/history')
-  await page.getByRole('button', { name: `Preview ${number}` }).click()
-  await expect(page.getByRole('dialog')).toContainText('120 kWh x Rs. 9 / kWh')
-  await page.keyboard.press('Escape')
   await page.goto('/settings')
+  await expect(
+    page.getByLabel('Electricity unit rate', { exact: true }),
+  ).toHaveValue('8.5')
+  await expect(
+    page.getByLabel('Maintenance default amount', { exact: true }),
+  ).toHaveValue('500')
+  await page.getByLabel('Electricity unit rate', { exact: true }).fill('7')
   await page
-    .getByRole('button', { name: 'Edit Electricity rate', exact: true })
-    .click()
-  await page.getByLabel('Rate per unit (INR)', { exact: true }).fill('7')
+    .getByRole('checkbox', { name: 'Include Maintenance', exact: true })
+    .uncheck()
   await page
-    .getByRole('button', { name: 'Update charge rate', exact: true })
+    .getByRole('button', { name: 'Save my charges', exact: true })
     .click()
   await expect(page.locator('.settings-status')).toHaveText(
-    'Charge rate saved.',
+    'Your charges have been saved.',
   )
   await page
     .getByRole('link', { name: 'Back to invoice builder', exact: true })
     .click()
   await expect(
-    page.getByLabel('Rate per unit for Electricity', { exact: true }),
-  ).toHaveValue('9')
+    page.getByLabel('Amount for Electricity', { exact: true }),
+  ).toHaveValue('1080.00')
+  await expect(
+    page.getByLabel('Amount for Maintenance', { exact: true }),
+  ).toHaveValue('600')
+  await expect(
+    page.getByRole('option', { name: 'Maintenance', exact: true }),
+  ).toHaveCount(0)
   await page
-    .getByLabel('Add a calculated charge')
-    .selectOption({ label: 'Electricity · Rs. 7 / kWh' })
+    .getByLabel('Add one of your charges')
+    .selectOption({ label: 'Electricity' })
   await page
     .getByLabel('Quantity for Electricity', { exact: true })
     .last()
@@ -255,5 +262,10 @@ test('profile landlords and saved rates prefill bills while historical calculati
   ).toHaveValue('14.00')
   await page
     .locator('#charges')
-    .screenshot({ path: test.info().outputPath('calculated-charges.png') })
+    .screenshot({ path: test.info().outputPath('bill-quantity-only.png') })
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true)
 })

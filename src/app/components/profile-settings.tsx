@@ -2,42 +2,12 @@
 import { useState } from 'react'
 import SavedLandlords from './saved-landlords'
 import { useChargeRates } from '../lib/use-charge-rates'
-import type { ChargeRate, ChargeRateInput } from '../lib/charge-rates'
+import ChargePreferencesForm from './charge-preferences-form'
 
-const emptyRate: ChargeRateInput = { name: '', unit: 'units', rate: '' }
 export default function ProfileSettings({ userId }: { userId: string }) {
   const [landlord, setLandlord] = useState({ name: '', phone: '' })
-  const { rates, loading, error, refresh, save } = useChargeRates(userId)
-  const [details, setDetails] = useState(emptyRate)
-  const [editing, setEditing] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState('')
-  const [saveError, setSaveError] = useState('')
-  async function remove(row: ChargeRate) {
-    if (
-      !window.confirm(
-        `Remove the saved rate for ${row.name}? Existing bills will keep their rates.`,
-      )
-    )
-      return
-    setBusy(true)
-    setSaveError('')
-    setMessage('')
-    try {
-      await save('DELETE', { id: row.id })
-      if (editing === row.id) {
-        setEditing('')
-        setDetails(emptyRate)
-      }
-      setMessage('Charge rate removed.')
-    } catch (reason) {
-      setSaveError(
-        reason instanceof Error ? reason.message : 'Could not remove rate.',
-      )
-    } finally {
-      setBusy(false)
-    }
-  }
+  const { rates, loading, error, refresh, savePreferences } =
+    useChargeRates(userId)
   return (
     <div className="settings-grid">
       <section className="settings-card" aria-labelledby="landlords-title">
@@ -54,7 +24,9 @@ export default function ProfileSettings({ userId }: { userId: string }) {
           <input
             maxLength={100}
             value={landlord.name}
-            onChange={(e) => setLandlord({ ...landlord, name: e.target.value })}
+            onChange={(event) =>
+              setLandlord({ ...landlord, name: event.target.value })
+            }
             placeholder="e.g. Alex Morgan"
           />
         </label>
@@ -64,170 +36,36 @@ export default function ProfileSettings({ userId }: { userId: string }) {
             type="tel"
             maxLength={40}
             value={landlord.phone}
-            onChange={(e) =>
-              setLandlord({ ...landlord, phone: e.target.value })
+            onChange={(event) =>
+              setLandlord({ ...landlord, phone: event.target.value })
             }
             placeholder="e.g. +91 98765 43210"
           />
         </label>
       </section>
       <section className="settings-card" aria-labelledby="rates-title">
-        <h2 id="rates-title">Charge rates</h2>
+        <h2 id="rates-title">Your bill charges</h2>
         <p>
-          Save a per-unit rate for electricity, water, or any other charge.
-          Changes apply to new charges; existing bills keep their original
-          rates.
+          Choose what you use. Only selected charges appear in the builder.
+          Default changes apply to new charges; existing bills keep their
+          amounts and rates.
         </p>
-        <form
-          onSubmit={async (event) => {
-            event.preventDefault()
-            setBusy(true)
-            setSaveError('')
-            setMessage('')
-            try {
-              await save(editing ? 'PATCH' : 'POST', {
-                ...details,
-                id: editing || undefined,
-              })
-              setDetails(emptyRate)
-              setEditing('')
-              setMessage('Charge rate saved.')
-            } catch (reason) {
-              setSaveError(
-                reason instanceof Error
-                  ? reason.message
-                  : 'Could not save rate.',
-              )
-            } finally {
-              setBusy(false)
-            }
-          }}
-        >
-          <fieldset disabled={loading || busy}>
-            <label>
-              Charge name
-              <input
-                required
-                maxLength={100}
-                value={details.name}
-                onChange={(e) =>
-                  setDetails({ ...details, name: e.target.value })
-                }
-                placeholder="e.g. Electricity"
-              />
-            </label>
-            <div className="settings-rate-fields">
-              <label>
-                Unit label
-                <input
-                  required
-                  maxLength={24}
-                  value={details.unit}
-                  onChange={(e) =>
-                    setDetails({ ...details, unit: e.target.value })
-                  }
-                  placeholder="e.g. kWh"
-                />
-              </label>
-              <label>
-                Rate per unit (INR)
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  max="1000000"
-                  step="0.0001"
-                  inputMode="decimal"
-                  value={details.rate}
-                  onChange={(e) =>
-                    setDetails({ ...details, rate: e.target.value })
-                  }
-                  placeholder="e.g. 8.50"
-                />
-              </label>
-            </div>
-            <div className="settings-actions">
-              <button type="submit" className="primary-button">
-                {busy
-                  ? 'Saving…'
-                  : editing
-                    ? 'Update charge rate'
-                    : 'Save charge rate'}
-              </button>
-              {editing ? (
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => {
-                    setEditing('')
-                    setDetails(emptyRate)
-                  }}
-                >
-                  Cancel editing
-                </button>
-              ) : null}
-            </div>
-          </fieldset>
-        </form>
-        {error || saveError ? (
+        {loading ? (
+          <p role="status">Loading your charges…</p>
+        ) : error ? (
           <p className="form-error" role="alert">
-            {saveError || error}
+            {error}
           </p>
-        ) : null}
-        <p className="settings-status" role="status">
-          {message}
-        </p>
-        <ul className="saved-rate-list" aria-label="Saved charge rates">
-          {rates.map((row) => (
-            <li key={row.id}>
-              <div>
-                <strong>{row.name}</strong>
-                <span>
-                  Rs. {row.rate} / {row.unit}
-                </span>
-              </div>
-              <div className="settings-actions">
-                <button
-                  type="button"
-                  className="text-button"
-                  disabled={loading || busy}
-                  aria-label={`Edit ${row.name} rate`}
-                  onClick={() => {
-                    setEditing(row.id)
-                    setDetails({
-                      name: row.name,
-                      unit: row.unit,
-                      rate: row.rate,
-                    })
-                    setMessage('')
-                    setSaveError('')
-                  }}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="text-button"
-                  disabled={loading || busy}
-                  aria-label={`Remove ${row.name} rate`}
-                  onClick={() => void remove(row)}
-                >
-                  Remove
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-        {!loading && !rates.length ? (
-          <p>No rates saved yet. Try Electricity at your rate per kWh.</p>
-        ) : null}
+        ) : (
+          <ChargePreferencesForm initialRates={rates} save={savePreferences} />
+        )}
         <button
           type="button"
           className="text-button"
-          disabled={loading || busy}
+          disabled={loading}
           onClick={refresh}
         >
-          {loading ? 'Loading rates…' : 'Refresh charge rates'}
+          Reload saved charges
         </button>
       </section>
     </div>

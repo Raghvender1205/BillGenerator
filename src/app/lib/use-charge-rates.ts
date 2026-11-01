@@ -6,7 +6,7 @@ import {
   type ChargeRateInput,
 } from './charge-rates'
 
-const prefix = 'rentflow:charge-rates:v1:'
+const prefix = 'rentflow:charge-rates:v2:'
 export function cachedChargeRates(userId: string): ChargeRate[] | null {
   try {
     const raw = sessionStorage.getItem(prefix + userId)
@@ -18,7 +18,11 @@ export function cachedChargeRates(userId: string): ChargeRate[] | null {
       Date.now() - cache.at > 5 * 60 * 1000 ||
       !Array.isArray(cache.rates) ||
       !cache.rates.every(
-        (row: ChargeRate) => validChargeRate(row) && typeof row.id === 'string',
+        (row: ChargeRate) =>
+          validChargeRate(row) &&
+          typeof row.id === 'string' &&
+          typeof row.enabled === 'boolean' &&
+          (row.mode === 'fixed' || row.mode === 'per_unit'),
       )
     )
       return null
@@ -41,7 +45,8 @@ export function clearChargeRateCache() {
   try {
     for (let i = sessionStorage.length - 1; i >= 0; i--) {
       const key = sessionStorage.key(i)
-      if (key?.startsWith(prefix)) sessionStorage.removeItem(key)
+      if (key?.startsWith('rentflow:charge-rates:'))
+        sessionStorage.removeItem(key)
     }
   } catch {
     /* Sign-out still works without browser storage. */
@@ -114,5 +119,23 @@ export function useChargeRates(userId?: string) {
     cacheRates(userId, next)
     return data as ChargeRate
   }
-  return { rates, loading, error, refresh, save }
+  async function savePreferences(
+    charges: (ChargeRateInput & { id?: string })[],
+  ) {
+    if (!userId) throw Error('Sign in to save your charges.')
+    const response = await fetch('/api/charge-rates', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-RentFlow-User': userId,
+      },
+      body: JSON.stringify({ charges }),
+    })
+    const data = await response.json()
+    if (!response.ok) throw Error(data.error || 'Could not save your charges.')
+    setRates(data)
+    cacheRates(userId, data)
+    return data as ChargeRate[]
+  }
+  return { rates, loading, error, refresh, save, savePreferences }
 }

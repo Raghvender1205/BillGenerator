@@ -77,6 +77,10 @@ test('unconfirmed users verify their email before signing in', async ({
     await page.goto(
       `/auth/confirm?type=email&token_hash=${encodeURIComponent(data.properties.hashed_token)}`,
     )
+    await expect(page).toHaveURL('/onboarding')
+    await page
+      .getByRole('button', { name: 'Skip for now', exact: true })
+      .click()
     await expect(page).toHaveURL('/')
     await expect(page.getByLabel('Invoice number')).toBeEnabled()
     await page.getByRole('button', { name: 'Sign out', exact: true }).click()

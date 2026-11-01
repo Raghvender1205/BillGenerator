@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       rentflow_charge_rates: {
         Row: {
+          enabled: boolean
+          mode: string
           id: string
           name: string
           rate: number
@@ -23,6 +25,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          enabled?: boolean
+          mode?: string
           id?: string
           name: string
           rate: number
@@ -30,12 +34,20 @@ export type Database = {
           user_id: string
         }
         Update: {
+          enabled?: boolean
+          mode?: string
           id?: string
           name?: string
           rate?: number
           unit?: string
           user_id?: string
         }
+        Relationships: []
+      }
+      rentflow_profiles: {
+        Row: { user_id: string; onboarding_completed_at: string }
+        Insert: { user_id: string; onboarding_completed_at?: string }
+        Update: { user_id?: string; onboarding_completed_at?: string }
         Relationships: []
       }
       rentflow_drafts: {
@@ -133,6 +145,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      rentflow_save_charge_preferences: {
+        Args: { p_charges: Json }
+        Returns: Database['public']['Tables']['rentflow_charge_rates']['Row'][]
+      }
+      rentflow_complete_onboarding: {
+        Args: { p_landlord: Json; p_charges: Json; p_skip: boolean }
+        Returns: string
+      }
       rentflow_new_invoice: {
         Args: { p_due: string }
         Returns: {

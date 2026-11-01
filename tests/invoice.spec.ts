@@ -24,17 +24,30 @@ test('allows guests to open the invoice builder', async ({ request }) => {
 
 test('updates totals, restores the full draft, and downloads a PDF', async ({
   page,
+  account,
 }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   await fillInvoice(page)
-  await page.getByRole('button', { name: 'Add a charge', exact: true }).click()
+  const saved = await page.request.post('/api/charge-rates', {
+    headers: { Origin: 'http://127.0.0.1:3100', 'X-RentFlow-User': account.id },
+    data: {
+      name: 'Water charges',
+      unit: 'charge',
+      mode: 'fixed',
+      enabled: true,
+      rate: '450.20',
+    },
+  })
+  expect(saved.status()).toBe(200)
+  await expect(page.locator('.editor-bottom [role="status"]')).toHaveText(
+    'All changes saved to your account',
+  )
+  await page.evaluate(() => sessionStorage.clear())
+  await page.reload()
   await page
-    .getByRole('textbox', { name: 'Charge 2 description' })
-    .fill('Water charges')
-  await page
-    .getByRole('spinbutton', { name: 'Amount for Water charges' })
-    .fill('450.20')
+    .getByLabel('Add one of your charges')
+    .selectOption({ label: 'Water charges' })
   await page.getByRole('button', { name: 'Add discount', exact: true }).click()
   await page
     .getByRole('spinbutton', { name: 'Amount for Discount' })

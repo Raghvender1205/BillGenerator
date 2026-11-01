@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient, currentUser } from '../../lib/supabase/server'
 import { sameOrigin } from '../../lib/request-origin'
 import { validChargeRate } from '../../lib/charge-rates'
+import { validChargePreferences } from '../../lib/charge-preferences'
 
 const reply = (data: unknown, status = 200) =>
   NextResponse.json(data, {
@@ -22,7 +23,7 @@ async function handle(request: Request) {
   if (request.method === 'GET') {
     const { data, error } = await supabase
       .from('rentflow_charge_rates')
-      .select('id, name, unit, rate')
+      .select('id, name, unit, rate, mode, enabled')
       .eq('user_id', user.id)
       .order('name')
     return error
@@ -32,12 +33,36 @@ async function handle(request: Request) {
   let input
   try {
     const text = await request.text()
-    if (text.length > 2000) throw Error('Too large')
+    if (text.length > (request.method === 'PUT' ? 30000 : 2000))
+      throw Error('Too large')
     input = JSON.parse(text)
   } catch {
     return reply({ error: 'Invalid charge rate.' }, 400)
   }
   const id = input?.id
+  if (request.method === 'PUT') {
+    if (!validChargePreferences(input?.charges))
+      return reply(
+        {
+          error:
+            'Complete each selected charge with a unique name and valid rate or amount.',
+        },
+        400,
+      )
+    const { data, error } = await supabase.rpc(
+      'rentflow_save_charge_preferences',
+      { p_charges: input.charges },
+    )
+    return error
+      ? reply(
+          {
+            error:
+              'Could not save your charges. Reload if a charge was changed elsewhere.',
+          },
+          error.code === 'P0002' ? 409 : 503,
+        )
+      : reply(data.map((row) => ({ ...row, rate: String(row.rate) })))
+  }
   if (
     request.method !== 'POST' &&
     (typeof id !== 'string' ||
@@ -71,6 +96,8 @@ async function handle(request: Request) {
     name: input.name.trim(),
     unit: input.unit.trim(),
     rate: Number(input.rate),
+    mode: input.mode || 'per_unit',
+    enabled: input.enabled ?? true,
   }
   const query =
     request.method === 'POST'
@@ -83,7 +110,7 @@ async function handle(request: Request) {
           .eq('user_id', user.id)
           .eq('id', id)
   const { data, error } = await query
-    .select('id, name, unit, rate')
+    .select('id, name, unit, rate, mode, enabled')
     .maybeSingle()
   if (error)
     return reply(
@@ -103,3 +130,4 @@ export const GET = handle
 export const POST = handle
 export const PATCH = handle
 export const DELETE = handle
+export const PUT = handle

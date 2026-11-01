@@ -210,7 +210,7 @@ export default function BillGenerator({ userId }: { userId?: string }) {
       }),
     })
   }
-  function addCalculatedCharge(preset: ChargeRateInput) {
+  function addCalculatedCharge(preset: ChargeRateInput & { id?: string }) {
     const id = crypto.randomUUID()
     update({
       ...invoice,
@@ -219,11 +219,21 @@ export default function BillGenerator({ userId }: { userId?: string }) {
         {
           id,
           title: preset.name,
-          amount: '',
+          amount:
+            preset.mode === 'fixed' ? calculatedAmount('1', preset.rate) : '',
           type: 'regular',
-          quantity: '',
-          rate: preset.rate,
-          unit: preset.unit,
+          ...(preset.mode === 'fixed'
+            ? {}
+            : { quantity: '', rate: preset.rate, unit: preset.unit }),
+          ...(preset.id
+            ? {
+                chargeId: preset.id,
+                defaultRate:
+                  preset.mode === 'fixed'
+                    ? calculatedAmount('1', preset.rate)
+                    : preset.rate,
+              }
+            : {}),
         },
       ],
     })
@@ -587,7 +597,7 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                       key={item.id}
                     >
                       <div
-                        className={`description-input ${item.type === 'regular' ? 'calculable-description' : ''}`}
+                        className={`description-input ${!userId && item.type === 'regular' ? 'calculable-description' : ''}`}
                       >
                         <input
                           id={`item-${index}`}
@@ -600,11 +610,12 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                               : 'e.g. Water charges'
                           }
                           value={item.title}
+                          readOnly={Boolean(item.chargeId)}
                           onChange={(e) =>
                             updateItem(item.id, { title: e.target.value })
                           }
                         />
-                        {item.type === 'regular' ? (
+                        {!userId && item.type === 'regular' ? (
                           <button
                             type="button"
                             className="icon-button line-calculator"
@@ -630,7 +641,9 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                         aria-label={`Amount for ${item.title || `item ${index + 1}`}`}
                         placeholder="0.00"
                         value={item.amount}
-                        readOnly={item.quantity !== undefined}
+                        readOnly={
+                          item.quantity !== undefined || Boolean(item.chargeId)
+                        }
                         onChange={(e) =>
                           updateItem(item.id, { amount: e.target.value })
                         }
@@ -655,7 +668,10 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                 </div>
               </DragDropProvider>
               {invoice.items
-                .filter((item) => item.quantity !== undefined)
+                .filter(
+                  (item) =>
+                    item.quantity !== undefined || Boolean(item.chargeId),
+                )
                 .map((item) => (
                   <ChargeCalculation
                     key={item.id}
@@ -664,13 +680,15 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                   />
                 ))}
               <div className="add-actions">
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => addItem('regular')}
-                >
-                  <Plus size={15} aria-hidden="true" /> Add a charge
-                </button>
+                {!userId ? (
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => addItem('regular')}
+                  >
+                    <Plus size={15} aria-hidden="true" /> Add a charge
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="text-button muted-button"

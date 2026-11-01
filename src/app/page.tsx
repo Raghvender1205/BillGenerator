@@ -1,8 +1,31 @@
 import { Check, LockKeyhole } from 'lucide-react'
 import BillGenerator from '@/components/bill-generator'
-import { currentUser } from './lib/supabase/server'
+import { currentUser, createClient } from './lib/supabase/server'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
 export default async function Home() {
   const user = await currentUser()
+  if (user) {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('rentflow_profiles')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (error)
+      return (
+        <div className="workspace settings-page">
+          <h1>We couldn’t load your account</h1>
+          <p role="alert">
+            Please try again once your account settings are available.
+          </p>
+          <Link href="/" className="text-button">
+            Try again
+          </Link>
+        </div>
+      )
+    if (!data) redirect('/onboarding')
+  }
   return (
     <div className="workspace">
       <h1 className="sr-only">Rent invoice builder</h1>

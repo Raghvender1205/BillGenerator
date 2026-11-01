@@ -14,63 +14,58 @@ export default function ChargePresets({
   loading: boolean
   error: string
   refresh: () => void
-  onAdd: (rate: ChargeRateInput) => void
+  onAdd: (rate: ChargeRateInput & { id?: string }) => void
   signedIn: boolean
 }) {
+  if (!signedIn) return null
+  const selected = rates.filter((rate) => rate.enabled)
   return (
     <div className="charge-presets">
-      <label>
-        Add a calculated charge
-        <select
-          value=""
-          disabled={loading}
-          onChange={(event) => {
-            const saved = rates.find((rate) => rate.id === event.target.value)
-            if (saved) onAdd(saved)
-            else if (event.target.value === 'electricity')
-              onAdd({ name: 'Electricity', unit: 'kWh', rate: '' })
-            else if (event.target.value === 'water')
-              onAdd({ name: 'Water', unit: 'units', rate: '' })
-            else if (event.target.value === 'custom')
-              onAdd({ name: '', unit: 'units', rate: '' })
-          }}
-        >
-          <option value="">
-            {loading ? 'Loading your rates…' : 'Choose a charge'}
-          </option>
-          {rates.length ? (
-            <optgroup label="Your saved rates">
-              {rates.map((rate) => (
-                <option key={rate.id} value={rate.id}>
-                  {rate.name} · Rs. {rate.rate} / {rate.unit}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-          <optgroup label="Enter a rate on this bill">
-            <option value="electricity">Electricity</option>
-            <option value="water">Water</option>
-            <option value="custom">Other calculated charge</option>
-          </optgroup>
-        </select>
-      </label>
-      <p>
-        {signedIn ? (
-          <Link href="/settings">Manage default rates in profile settings</Link>
-        ) : (
-          'Enter units and a rate to calculate the amount.'
-        )}
-      </p>
-      {error ? (
+      {loading ? (
+        <p role="status">Loading your charges…</p>
+      ) : error ? (
         <>
           <p className="form-error" role="alert">
             {error}
           </p>
           <button type="button" className="text-button" onClick={refresh}>
-            Retry loading rates
+            Retry loading charges
           </button>
         </>
-      ) : null}
+      ) : selected.length ? (
+        <>
+          <label>
+            Add one of your charges
+            <select
+              value=""
+              onChange={(event) => {
+                const charge = selected.find(
+                  (rate) => rate.id === event.target.value,
+                )
+                if (charge) onAdd(charge)
+              }}
+            >
+              <option value="">Choose a charge</option>
+              {selected.map((charge) => (
+                <option key={charge.id} value={charge.id}>
+                  {charge.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p>
+            <Link href="/settings">Manage my charges</Link>
+          </p>
+        </>
+      ) : (
+        <p>
+          Rent is ready.{' '}
+          <Link href="/settings">
+            Set up your additional charges in Settings
+          </Link>{' '}
+          whenever you need them.
+        </p>
+      )}
     </div>
   )
 }

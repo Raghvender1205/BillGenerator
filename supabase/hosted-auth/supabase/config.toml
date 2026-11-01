@@ -2,8 +2,8 @@
 # This file deliberately limits hosted changes to the app's auth configuration.
 project_id = "BillGenerator"
 [auth]
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["http://localhost:3000/auth/callback", "http://localhost:3000/auth/callback?next=/auth/update-password", "http://127.0.0.1:3000/auth/callback", "http://127.0.0.1:3000/auth/callback?next=/auth/update-password", "http://127.0.0.1:3100/auth/callback", "http://127.0.0.1:3100/auth/callback?next=/auth/update-password"]
+site_url = "https://bill-generator-eta.vercel.app"
+additional_redirect_urls = ["https://bill-generator-eta.vercel.app/auth/callback", "https://bill-generator-eta.vercel.app/auth/callback?next=/auth/update-password", "http://localhost:3000/auth/callback", "http://localhost:3000/auth/callback?next=/auth/update-password", "http://127.0.0.1:3000/auth/callback", "http://127.0.0.1:3000/auth/callback?next=/auth/update-password", "http://127.0.0.1:3100/auth/callback", "http://127.0.0.1:3100/auth/callback?next=/auth/update-password"]
 minimum_password_length = 8
 [auth.email]
 enable_signup = true

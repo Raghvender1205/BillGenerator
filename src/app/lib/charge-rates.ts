@@ -1,5 +1,15 @@
-export type ChargeRateInput = { name: string; unit: string; rate: string }
-export type ChargeRate = ChargeRateInput & { id: string }
+export type ChargeRateInput = {
+  name: string
+  unit: string
+  rate: string
+  mode?: 'per_unit' | 'fixed'
+  enabled?: boolean
+}
+export type ChargeRate = ChargeRateInput & {
+  id: string
+  mode: 'per_unit' | 'fixed'
+  enabled: boolean
+}
 
 export function validDecimal(value: unknown): value is string {
   return (
@@ -20,7 +30,11 @@ export function validChargeRate(value: unknown): value is ChargeRateInput {
     typeof row.unit === 'string' &&
     row.unit.trim().length > 0 &&
     row.unit.length <= 24 &&
-    validDecimal(row.rate)
+    validDecimal(row.rate) &&
+    (row.mode === undefined ||
+      row.mode === 'per_unit' ||
+      row.mode === 'fixed') &&
+    (row.enabled === undefined || typeof row.enabled === 'boolean')
   )
 }
 

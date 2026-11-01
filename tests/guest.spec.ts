@@ -26,7 +26,16 @@ test('unit-based guest charges persist and reorder alongside fixed charges and d
       apiCalls.push(request.url())
   })
   await fillGuest(page)
-  await page.getByLabel('Add a calculated charge').selectOption('electricity')
+  await page.getByRole('button', { name: 'Add a charge', exact: true }).click()
+  await page
+    .getByRole('textbox', { name: 'Charge 2 description', exact: true })
+    .fill('Electricity')
+  await page
+    .getByRole('button', {
+      name: 'Calculate Electricity by units',
+      exact: true,
+    })
+    .click()
   await page.getByLabel('Quantity for Electricity', { exact: true }).fill('120')
   await page
     .getByLabel('Rate per unit for Electricity', { exact: true })

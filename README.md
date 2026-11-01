@@ -2,25 +2,19 @@
 
 A rent invoice builder using Next.js 16, Supabase Auth, and Supabase Postgres. Generate invoices immediately without signing in. Guests get locally saved drafts and landlord/tenant details. An optional account adds private cloud drafts, invoice history, and access across devices. Charges and discounts can be reordered with drag handles (mouse/touch drag-and-drop or Space and arrow keys); the preview and PDF follow that order. Amounts use INR. New invoices default to the first of the current month; the due date remains editable. Issue dates and personal notes are omitted.
 
-## Setup
+## Local development and testing
 
-Requires Node.js 20.9 or newer. Use npm and the committed `package-lock.json`.
+Requires Node.js 20.9 or newer and Docker. Use npm and the committed lockfile.
 
 ```sh
 npm ci
-npx supabase login
-npx supabase link --project-ref <your-project-ref>
-cp .env.example .env.local
+npx supabase start --exclude studio,imgproxy,realtime,storage-api,edge-runtime,logflare,vector,supavisor,postgres-meta
+npm run dev:local
 ```
 
-Set the server-only `SUPABASE_URL` to your project URL and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to BillGenerator's publishable key from the Supabase Connect dialog. Select the **BillGenerator** project when linking the CLI. `.env.local` and Supabase's local connection metadata are ignored by Git. The Supabase CLI is pinned as a project dependency; `npm run supabase -- --help` and `npx supabase --help` both work.
+Open http://127.0.0.1:3000. The local launcher reads the local Supabase configuration, overrides the hosted values in `.env.local` for that process, and refuses hosted API URLs. It does not edit `.env.local`. Local signup confirmation emails appear in Mailpit at http://127.0.0.1:54324. First sign-in opens skippable onboarding: optional landlord details, then selected charge defaults.
 
-```sh
-npx supabase db push --linked
-npm run dev
-```
-
-Open http://localhost:3000 and start generating bills. Sign-in and account creation are optional. The migration is already applied to the connected project. No service-role or secret key is used by the application.
+New migrations are kept in `supabase/migrations`. Supabase applies them to the local stack on startup; for an existing local stack, use `npx supabase db reset --local` to rebuild its local test data. Hosted schema changes are handled by the Git push release workflow. These local commands do not deploy or access the hosted database. The guarded helper-permission migration also works on local Supabase, where the hosted platform helper does not exist.
 
 ## Supabase Auth configuration
 
@@ -37,9 +31,9 @@ The local CLI is already logged in on this machine. To switch accounts, run `npx
 
 ## Drafts and invoice numbering
 
-**Profile settings:** Signed-in users can manage landlords and reusable charge rates from `/settings`. Save a name (such as Electricity), unit label (such as kWh), and per-unit rate. Rates are private to the account and cached in the current tab for five minutes, with a manual refresh and sign-out cleanup.
+**Onboarding and charge preferences:** First sign-in offers optional landlord details followed by Electricity, Water, Maintenance, Parking, and custom charges. Users choose what they need and enter a per-unit rate or default fixed amount. Skipping is recorded and leaves rent available. Settings can add, edit, or disable charges later. Unselected charges are absent from the builder's choices. Preferences and landlords are private to the account, with tab-scoped caches cleared on sign-out.
 
-**Calculated charges:** Use **Add a calculated charge** to choose a saved rate, electricity, water, or another custom charge. Enter the quantity; the amount is calculated as quantity × rate, rounded once to paise. Inputs support four decimal places. The calculator button beside a regular charge opens its unit-based calculation; **Use fixed amount** switches it back. Each bill stores its own quantity, rate, and unit, so changing a profile rate never changes existing drafts or history. The calculation appears in the preview and exported PDF. Guests can enter quantities and rates directly without an account.
+**Adding charges:** Signed-in users choose only from their configured charges. Per-unit charges ask for quantity and display the saved rate and calculated amount. Fixed charges prefill the saved amount. A secondary **Override for this bill** action changes only that bill; existing drafts and history retain their rate snapshots. Disabled charges are removed from future choices while existing bill lines stay intact. Guests retain manual charges without a preset catalogue.
 
 **Saved landlords:** Signed-in users can save multiple landlord names and phone numbers from the bill editor. Choose a saved landlord to prefill both fields, update a selected profile, or save the current details as a new profile. Removing a profile leaves existing bills unchanged. Profiles sync across devices and are private to each account; guests do not have a landlord library. Starting a new bill keeps the current landlord as before. The selected profile and landlord list are cached per account in this tab's sessionStorage for five minutes, so returning to the editor avoids another list query. Saving, editing, and deleting update the cache immediately. Use **Refresh saved landlords** for changes from another device. Signing out clears the cache; blocked or corrupt browser storage falls back to the API. The invoice draft still loads normally and cached profiles never overwrite its edited fields.
 
@@ -58,20 +52,15 @@ Guest and account data stay separate. A signed-in user can explicitly **Import b
 ```sh
 npm run lint
 npm run typecheck
-npm run build
 npx playwright install chromium
-npm test
-# Guest-only checks work without administrative CLI credentials:
-npm run test:guest
-npx supabase db query --linked --file supabase/tests/account_isolation.sql
-npx supabase db query --linked --file supabase/tests/landlord_isolation.sql
-npx supabase db query --linked --file supabase/tests/charge_rate_isolation.sql
-npx supabase db advisors --linked --type security --level warn
+npm run test:local
+# Or run selected local browser tests:
+npm run test:local -- tests/onboarding.spec.ts tests/profile-settings.spec.ts
 ```
 
-Browser tests use the linked BillGenerator project's administrative key **only in the test process** to create temporary `rentflow-e2e-…@example.test` users, confirm/generate recovery links without sending emails, and delete test users afterward. They exercise actual sign-in, password recovery, cloud drafts, concurrent-save conflicts, PDF export, responsive layouts, and accessibility. You must be logged into the CLI with permission to manage the test project. Do not run these tests against another project's credentials. Failure traces may contain temporary test-session information and are ignored by Git.
+`npm test` and the legacy browser-test script now use this same local-only runner. It refuses hosted API URLs, runs transactional ownership/isolation tests in the dedicated `supabase_db_BillGenerator` container, builds the app with local credentials, and creates temporary local test accounts for the browser checks. Test accounts are deleted afterward. No hosted tokens are looked up and no hosted users or tables are changed.
 
-The SQL test runs in a transaction and rolls back all test users/data. It verifies draft/history account isolation, ownership reassignment protection, anonymous restrictions, and account-scoped numbering. Production SMTP delivery should be checked with a real intended recipient after configuring the sender.
+Coverage includes onboarding skip/completion, hidden unselected charges, fixed and per-unit defaults, bill-only overrides, PDF snapshots, persistence, guest editing, drag-and-drop, responsive layouts, authentication, and accessibility. Test artifacts can contain local test-session data and remain ignored by Git. Public SMTP delivery is configured and verified separately when deploying.
 
 ## Implementation
 

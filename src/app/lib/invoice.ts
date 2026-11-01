@@ -8,6 +8,8 @@ export type LineItem = {
   quantity?: string
   rate?: string
   unit?: string
+  chargeId?: string
+  defaultRate?: string
 }
 export type Invoice = {
   landlord: { name: string; phone: string }
@@ -117,6 +119,11 @@ export function isInvoice(value: unknown): value is Invoice {
         typeof item.id === 'string' &&
         typeof item.title === 'string' &&
         typeof item.amount === 'string' &&
+        ((item.chargeId === undefined && item.defaultRate === undefined) ||
+          (typeof item.chargeId === 'string' &&
+            /^[0-9a-f-]{36}$/i.test(item.chargeId) &&
+            validDecimal(item.defaultRate) &&
+            item.type === 'regular')) &&
         validCalculation(item) &&
         (item.amount === '' ||
           (Number.isFinite(Number(item.amount)) &&
