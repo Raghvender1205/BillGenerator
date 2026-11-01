@@ -32,6 +32,7 @@ import Link from 'next/link'
 import { DragDropProvider } from '@dnd-kit/react'
 import { isSortable } from '@dnd-kit/react/sortable'
 import SortableInvoiceRow from './sortable-invoice-row'
+import SavedLandlords from './saved-landlords'
 
 function SectionHeading({
   number,
@@ -369,6 +370,14 @@ export default function BillGenerator({ userId }: { userId?: string }) {
                   <h3>
                     <Building2 size={15} aria-hidden="true" /> FROM · LANDLORD
                   </h3>
+                  {userId ? (
+                    <SavedLandlords
+                      key={userId}
+                      userId={userId}
+                      landlord={invoice.landlord}
+                      onSelect={(landlord) => update({ ...invoice, landlord })}
+                    />
+                  ) : null}
                   <label>
                     Full name <span>*</span>
                     <input

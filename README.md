@@ -37,6 +37,8 @@ The local CLI is already logged in on this machine. To switch accounts, run `npx
 
 ## Drafts and invoice numbering
 
+**Saved landlords:** Signed-in users can save multiple landlord names and phone numbers from the bill editor. Choose a saved landlord to prefill both fields, update a selected profile, or save the current details as a new profile. Removing a profile leaves existing bills unchanged. Profiles sync across devices and are private to each account; guests do not have a landlord library. Starting a new bill keeps the current landlord as before.
+
 **Guests:** The full builder works without Supabase configuration or an account. Drafts, saved landlord/tenant details, item order, and monthly numbering are stored in localStorage on this browser. Old `rentflow_draft_v1`, `rentflow_landlord_info`, and `rentflow_tenant_info` data are restored when valid. Starting fresh keeps the people/property details. Clearing browser data removes guest drafts and counters. When storage is blocked or corrupt, generation and PDF downloads still work, with a warning if changes cannot be saved. Full invoice data is not put in cookies or sent to the backend for guests.
 
 **Accounts:** Each account has one current draft in `rentflow_drafts`, protected by row-level security. Autosave uses optimistic revisions: if another tab or device changes the draft, it reports a conflict instead of overwriting it. Unsynced changes remain in the open form and can be exported; retry a failed save before closing the tab. Starting fresh replaces the draft while keeping saved landlord and tenant details. These details preload when you return.
@@ -58,6 +60,7 @@ npm test
 # Guest-only checks work without administrative CLI credentials:
 npm run test:guest
 npx supabase db query --linked --file supabase/tests/account_isolation.sql
+npx supabase db query --linked --file supabase/tests/landlord_isolation.sql
 npx supabase db advisors --linked --type security --level warn
 ```
 
